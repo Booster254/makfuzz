@@ -41,80 +41,75 @@ public class BestMatchV4 {
 	public static List<SimResult> bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
 			int topN) {
 
-		int count = criterias.size();
+		if (criterias == null || criterias.isEmpty()) {
+			return java.util.Collections.emptyList();
+		}
 
-		List<Integer> nonEmptyIndexes = new java.util.ArrayList<>();
+		int count = criterias.size();
+		List<Integer> activeIndexes = new java.util.ArrayList<>();
 		double totalWeight = 0.0;
 
 		for (int i = 0; i < count; i++) {
 			Criteria cI = criterias.get(i);
 			if (cI != null && !cI.isBlank()) {
-				nonEmptyIndexes.add(i);
+				activeIndexes.add(i);
 				totalWeight += cI.weight;
 			}
 		}
 
-		if (nonEmptyIndexes.isEmpty()) {
+		if (activeIndexes.isEmpty() || totalWeight <= 0) {
 			return java.util.Collections.emptyList();
 		}
 
 		final double finalTotalWeight = totalWeight;
 
 		return candidates.stream()
-				.filter(t -> t.length > nonEmptyIndexes.get(nonEmptyIndexes.size() - 1))
+				.filter(t -> t.length > activeIndexes.get(activeIndexes.size() - 1))
 				.map(t -> {
 					double[] scoreDetails = new double[count];
-					double score = 0d;
-					boolean allExactMatch = true;
+					double weightedScoreSum = 0d;
 
-					for (int i : nonEmptyIndexes) {
+					for (int i : activeIndexes) {
 						Criteria cI = criterias.get(i);
 						double simScore = 0.0;
 
 						if (cI.matchingType == MatchingType.EXACT) {
-							if (t[i].equalsIgnoreCase(cI.value)) {
+							if (t[i] != null && t[i].equalsIgnoreCase(cI.value)) {
 								simScore = 1.0;
 							} else {
-								allExactMatch = false;
+								// For EXACT, if it doesn't match, we can disqualify early
+								return null;
 							}
 						} else if (cI.matchingType == MatchingType.REGEX) {
-							try {
-								simScore = cI.pattern.matcher(t[i]).matches() ? 1.0 : 0.0;
-							} catch (Exception e) {
-								simScore = 0.0;
+							if (cI.pattern != null && t[i] != null && cI.pattern.matcher(t[i]).matches()) {
+								simScore = 1.0;
+							} else {
+								// Similarly for REGEX, if we specify a regex, we typically want it to match
+								return null;
 							}
 						} else {
-							simScore = StringDistance.jaro(t[i], cI.value);
+							// SIMILARITY
+							simScore = (t[i] == null) ? 0.0 : StringDistance.jaro(t[i], cI.value);
 							
 							if (simScore < cI.minScoreIfSimilarity) {
-								simScore = 0;
+								// If it fails to meet the minimum similarity for this field, disqualify
+								return null;
 							}
 						}
 
-						double criterionScore = simScore * cI.weight;
-						scoreDetails[i] = criterionScore;
-						score += criterionScore;
-					}
-
-					// If any exact-match criterion failed, disqualify this candidate
-					if (!allExactMatch) {
-						return null;
-					}
-					
-					for (double d : scoreDetails) {
-						if (d == 0d) {
-							return null;
-						}
+						double weightedPart = simScore * cI.weight;
+						scoreDetails[i] = weightedPart;
+						weightedScoreSum += weightedPart;
 					}
 
 					// Normalize by total weight to get a score between 0 and 1
-					score = score / finalTotalWeight;
+					double finalScore = weightedScoreSum / finalTotalWeight;
 
-					return new SimResult(t, score, scoreDetails);
+					return new SimResult(t, finalScore, scoreDetails);
 				})
 				.filter(p -> p != null && p.score >= threshold)
 				.distinct()
-				.sorted((a, b) -> Double.compare(b.score, a.score))
+				.sorted() // Uses the corrected Comparable implementation
 				.limit(topN)
 				.collect(Collectors.toList());
 	}
@@ -167,21 +162,21 @@ public class BestMatchV4 {
 		}
 	}
 
-	private static class SimResult implements Comparator<SimResult> {
+	private static class SimResult implements Comparable<SimResult> {
 		String[] candidate;
 		double score;
 		double[] scoreDetails;
 
-		@Override
-		public int compare(SimResult o1, SimResult o2) {
-			return Double.compare(o1.score, o2.score);
-		}
-
 		public SimResult(String[] candidate, double score, double[] scoreDetails) {
-			super();
 			this.candidate = candidate;
 			this.scoreDetails = scoreDetails;
 			this.score = score;
+		}
+
+		@Override
+		public int compareTo(SimResult other) {
+			// Sort by score DESCENDING
+			return Double.compare(other.score, this.score);
 		}
 
 		@Override
@@ -192,43 +187,19 @@ public class BestMatchV4 {
 			return result;
 		}
 
-		public String[] getCandidate() {
-			return candidate;
-		}
-
-		public void setCandidate(String[] candidate) {
-			this.candidate = candidate;
-		}
-
-		public double getScore() {
-			return score;
-		}
-
-		public void setScore(double score) {
-			this.score = score;
-		}
-
-		public double[] getScoreDetails() {
-			return scoreDetails;
-		}
-
-		public void setScoreDetails(double[] scoreDetails) {
-			this.scoreDetails = scoreDetails;
-		}
-
 		@Override
 		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (getClass() != obj.getClass()) {
-				return false;
-			}
+			if (this == obj) return true;
+			if (obj == null || getClass() != obj.getClass()) return false;
 			SimResult other = (SimResult) obj;
 			return Arrays.equals(candidate, other.candidate);
 		}
+
+		public String[] getCandidate() { return candidate; }
+		public void setCandidate(String[] candidate) { this.candidate = candidate; }
+		public double getScore() { return score; }
+		public void setScore(double score) { this.score = score; }
+		public double[] getScoreDetails() { return scoreDetails; }
+		public void setScoreDetails(double[] scoreDetails) { this.scoreDetails = scoreDetails; }
 	}
 }
