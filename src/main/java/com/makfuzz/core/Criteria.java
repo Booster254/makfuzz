@@ -1,4 +1,4 @@
-package j25.core;
+package com.makfuzz.core;
 
 import java.util.regex.Pattern;
 

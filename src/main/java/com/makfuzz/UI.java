@@ -1,4 +1,4 @@
-package j25.ui;
+package com.makfuzz;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -31,6 +31,10 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatIntelliJLaf;
+import com.makfuzz.core.Fuzz;
+import com.makfuzz.core.Criteria;
+import com.makfuzz.core.SimResult;
+
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 
@@ -46,11 +50,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import j25.core.BestMatchV4;
-import j25.core.Criteria;
-import j25.core.SimResult;
-
-public class SearchUI extends JFrame {
+public class UI extends JFrame {
     private List<String[]> database;
     private JTable resultTable;
     private DefaultTableModel tableModel;
@@ -63,7 +63,7 @@ public class SearchUI extends JFrame {
     private JTextField topNField;
     private JLabel statusLabel;
     
-    public SearchUI() {
+    public UI() {
         // Apply Modern Theme
         try {
             UIManager.setLookAndFeel(new FlatIntelliJLaf());
@@ -292,7 +292,7 @@ public class SearchUI extends JFrame {
             
             double globalThreshold = Double.parseDouble(globalThresholdField.getText());
             int topN = Integer.parseInt(topNField.getText());
-            List<SimResult> results = BestMatchV4.bestMatch(database, criteriaList, globalThreshold, topN);
+            List<SimResult> results = Fuzz.bestMatch(database, criteriaList, globalThreshold, topN);
             
             tableModel.setRowCount(0);
             int rowIndex = 1;
@@ -628,7 +628,7 @@ public class SearchUI extends JFrame {
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            new SearchUI().setVisible(true);
+            new UI().setVisible(true);
         });
     }
 }

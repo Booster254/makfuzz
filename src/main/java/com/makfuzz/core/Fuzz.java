@@ -1,4 +1,4 @@
-package j25.core;
+package com.makfuzz.core;
  
 import java.util.Collection;
 import java.util.List;
@@ -9,7 +9,7 @@ import org.apache.commons.codec.language.bm.PhoneticEngine;
 import org.apache.commons.codec.language.bm.RuleType;
 import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 
-public class BestMatchV4 {
+public class Fuzz {
 
 	static final String SEP = "[,;]";
 	private static final JaroWinklerSimilarity SPELLING_STRATEGY = new JaroWinklerSimilarity();
