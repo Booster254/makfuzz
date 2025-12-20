@@ -81,8 +81,8 @@ public class SearchUI extends JFrame {
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createTitledBorder("Search Criteria"));
 
-        fnLine = new CriteriaLine("First Name:", "ahmed");
-        lnLine = new CriteriaLine("Last Name:", "");
+        fnLine = new CriteriaLine("First Name:", "ahmed", this::performSearch);
+        lnLine = new CriteriaLine("Last Name:", "", this::performSearch);
 
         mainPanel.add(fnLine);
         mainPanel.add(lnLine);
@@ -102,7 +102,11 @@ public class SearchUI extends JFrame {
     }
     
     private void setupCenterPanel() {
-        tableModel = new DefaultTableModel(new String[]{"First Name", "Score (FN)", "Last Name", "Score (LN)", "Total Score"}, 0) {
+        tableModel = new DefaultTableModel(new String[]{
+            "First Name", "Spell (FN)", "Phon (FN)", 
+            "Last Name", "Spell (LN)", "Phon (LN)", 
+            "Total Score"
+        }, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -113,6 +117,10 @@ public class SearchUI extends JFrame {
         resultTable.setFillsViewportHeight(true);
         resultTable.setRowHeight(25);
         
+        // Adjust column widths roughly
+        resultTable.getColumnModel().getColumn(0).setPreferredWidth(150);
+        resultTable.getColumnModel().getColumn(3).setPreferredWidth(150);
+
         JScrollPane scrollPane = new JScrollPane(resultTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
         
@@ -138,13 +146,16 @@ public class SearchUI extends JFrame {
             tableModel.setRowCount(0);
             for (SimResult res : results) {
                 String[] cand = res.getCandidate();
-                double[] details = res.getScoreDetails();
+                double[] sDetails = res.getSpellingScoreDetails();
+                double[] pDetails = res.getPhoneticScoreDetails();
                 
                 tableModel.addRow(new Object[]{
                     cand.length > 0 ? cand[0] : "",
-                    (details != null && details.length > 0) ? String.format("%.2f%%", details[0] * 100) : "0%",
+                    (sDetails != null && sDetails.length > 0) ? String.format("%.0f%%", sDetails[0] * 100) : "0%",
+                    (pDetails != null && pDetails.length > 0) ? String.format("%.0f%%", pDetails[0] * 100) : "0%",
                     cand.length > 1 ? cand[1] : "",
-                    (details != null && details.length > 1) ? String.format("%.2f%%", details[1] * 100) : "0%",
+                    (sDetails != null && sDetails.length > 1) ? String.format("%.0f%%", sDetails[1] * 100) : "0%",
+                    (pDetails != null && pDetails.length > 1) ? String.format("%.0f%%", pDetails[1] * 100) : "0%",
                     String.format("%.4f", res.getScore())
                 });
             }
@@ -165,7 +176,10 @@ public class SearchUI extends JFrame {
         private JTextField minScoreField;
         private JLabel minScoreLabel;
 
-        public CriteriaLine(String label, String defaultValue) {
+        private final Runnable onEnter;
+
+        public CriteriaLine(String label, String defaultValue, Runnable onEnter) {
+            this.onEnter = onEnter;
             setLayout(new FlowLayout(FlowLayout.LEFT, 10, 5));
             
             JLabel lbl = new JLabel(label);
@@ -173,6 +187,7 @@ public class SearchUI extends JFrame {
             add(lbl);
 
             valueField = new JTextField(defaultValue, 20);
+            valueField.addActionListener(e -> onEnter.run());
             add(new JLabel("Value:"));
             add(valueField);
 
@@ -181,12 +196,14 @@ public class SearchUI extends JFrame {
             add(new JLabel("Type:"));
             add(typeCombo);
 
-            weightField = new JTextField("1.0", 3);
+            weightField = new JTextField("1.0", 5);
+            weightField.addActionListener(e -> onEnter.run());
             add(new JLabel("Weight:"));
             add(weightField);
 
             minScoreLabel = new JLabel("Min Sim Score:");
-            minScoreField = new JTextField("0.5", 3);
+            minScoreField = new JTextField("0.8", 5);
+            minScoreField.addActionListener(e -> onEnter.run());
             add(minScoreLabel);
             add(minScoreField);
 

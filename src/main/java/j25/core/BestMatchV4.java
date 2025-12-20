@@ -1,32 +1,26 @@
 package j25.core;
-
+ 
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.ricecode.similarity.JaroWinklerStrategy;
-import net.ricecode.similarity.SimilarityStrategy;
+import org.apache.commons.codec.language.bm.NameType;
+import org.apache.commons.codec.language.bm.PhoneticEngine;
+import org.apache.commons.codec.language.bm.RuleType;
+import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 
 public class BestMatchV4 {
 
 	static final String SEP = "[,;]";
-	private static final SimilarityStrategy STRATEGY = new JaroWinklerStrategy();
-
-//	public static void main(String[] args) throws IOException {
-//
-//		List<String> firstNames = FileUtils.readLines(new File("./names.csv"), StandardCharsets.UTF_8);
-//
-//		List<String[]> db = firstNames.stream().map(s -> s.toUpperCase().split(SEP)).toList();
-//
-//		List<Criteria> criterias = new ArrayList<>();
-//		criterias.add(Criteria.similarity("ahmed", 1, 0.5d));
-//
-//		List<SimResult> bfn = bestMatch(db, criterias, 0.0, 100);
-//		ObjectMapper mapper = new ObjectMapper();
-//		mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-//		System.out.println(mapper.writeValueAsString(bfn));
-//	}
+	private static final JaroWinklerSimilarity SPELLING_STRATEGY = new JaroWinklerSimilarity();
 	
+	// Beider-Morse is optimized for Surnames and Generic Names (French, Arabic, etc.)
+	private static final PhoneticEngine PHONETIC_ENGINE = new PhoneticEngine(NameType.GENERIC, RuleType.APPROX, true);
+
+	// Cache to avoid recalculating expensive phonetic codes for repeating names
+	// This makes a HUGE difference in performance on large datasets
+	private static final java.util.Map<String, String> PHONETIC_CACHE = new java.util.concurrent.ConcurrentHashMap<>(2000);
+
 	public static List<SimResult> bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
 			int topN) {
 
@@ -36,6 +30,10 @@ public class BestMatchV4 {
 
 		int count = criterias.size();
 		List<Integer> activeIndexes = new java.util.ArrayList<>();
+		
+		// Pre-optimized criteria data
+		String[] criteriaValues = new String[count];
+		String[] criteriaPhoneticCodes = new String[count];
 		double totalWeight = 0.0;
 
 		for (int i = 0; i < count; i++) {
@@ -43,14 +41,16 @@ public class BestMatchV4 {
 			if (cI != null && !cI.isBlank()) {
 				activeIndexes.add(i);
 				totalWeight += cI.weight;
+				criteriaValues[i] = cI.value;
+				// PRE-OPTIMIZATION: Calculate search criteria phonetic code ONCE
+				criteriaPhoneticCodes[i] = PHONETIC_ENGINE.encode(cI.value);
 			}
 		}
 
 		if (activeIndexes.isEmpty()) {
-			// If no criteria are active, return the top candidates with a perfect score
 			return candidates.stream()
 					.limit(topN)
-					.map(t -> new SimResult(t, 1.0, new double[count]))
+					.map(t -> new SimResult(t, 1.0))
 					.collect(Collectors.toList());
 		}
 
@@ -60,51 +60,76 @@ public class BestMatchV4 {
 
 		final double finalTotalWeight = totalWeight;
 
-		return candidates.stream()
+		// Use parallelStream for faster processing on large datasets
+		return candidates.parallelStream()
 				.map(t -> {
-					double[] scoreDetails = new double[count];
-					double weightedScoreSum = 0d;
+					double[] spellingDetails = new double[count];
+					double[] phoneticDetails = new double[count];
+					double weightedChoiceSum = 0d;
+					double weightedSpellingSum = 0d;
+					double weightedPhoneticSum = 0d;
 
 					for (int i : activeIndexes) {
 						Criteria cI = criterias.get(i);
-						double simScore = 0.0;
+						double spellingScore = 0.0;
+						double phoneticScore = 0.0;
+						double choiceScore = 0.0;
 						
-						// Safety check for row length
-						String cellValue = (t != null && i < t.length) ? t[i] : null;
+						String cellValue = (t != null && i < t.length) ? t[i].trim().toUpperCase() : null;
 
-						if (cI.matchingType == Criteria.MatchingType.EXACT) {
-							if (cellValue != null && cellValue.equalsIgnoreCase(cI.value)) {
-								simScore = 1.0;
+						if (cellValue == null || cellValue.isEmpty()) {
+							// Skip or treat as zero match
+						} else if (cI.matchingType == Criteria.MatchingType.EXACT) {
+							if (cellValue.equalsIgnoreCase(criteriaValues[i])) {
+								spellingScore = phoneticScore = choiceScore = 1.0;
 							} else {
 								return null;
 							}
 						} else if (cI.matchingType == Criteria.MatchingType.REGEX) {
-							if (cI.pattern != null && cellValue != null && cI.pattern.matcher(cellValue).matches()) {
-								simScore = 1.0;
+							if (cI.pattern != null && cI.pattern.matcher(cellValue).matches()) {
+								spellingScore = phoneticScore = choiceScore = 1.0;
 							} else {
 								return null;
 							}
 						} else {
-							// SIMILARITY
-							if (cellValue == null) {
-								simScore = 0.0;
+							// 1. Calculate Spelling (Jaro-Winkler)
+							spellingScore = SPELLING_STRATEGY.apply(cellValue, criteriaValues[i]);
+							
+							// 2. Calculate Fuzzy Phonetic Score (Beider-Morse)
+							// CACHING: Use the cache for cells, but pre-calculated codes for criteria
+							String code1 = PHONETIC_CACHE.computeIfAbsent(cellValue, PHONETIC_ENGINE::encode);
+							String code2 = criteriaPhoneticCodes[i];
+							
+							if (code1.equals(code2)) {
+								phoneticScore = 1.0;
 							} else {
-								// RiceCode String Similarity Strategy
-								simScore = STRATEGY.score(cellValue, cI.value);
+								phoneticScore = SPELLING_STRATEGY.apply(code1, code2);
 							}
 							
-							if (simScore < cI.minScoreIfSimilarity) {
+							// Either a visual match or a sound match can pass
+							choiceScore = Math.max(spellingScore, phoneticScore);
+							
+							if (choiceScore < cI.minScoreIfSimilarity) {
 								return null;
 							}
 						}
 
-						double weightedPart = simScore * cI.weight;
-						scoreDetails[i] = weightedPart;
-						weightedScoreSum += weightedPart;
+						spellingDetails[i] = spellingScore;
+						phoneticDetails[i] = phoneticScore;
+						
+						weightedChoiceSum += choiceScore * cI.weight;
+						weightedSpellingSum += spellingScore * cI.weight;
+						weightedPhoneticSum += phoneticScore * cI.weight;
 					}
 
-					double finalScore = weightedScoreSum / finalTotalWeight;
-					return new SimResult(t, finalScore, scoreDetails);
+					double finalScore = weightedChoiceSum / finalTotalWeight;
+					SimResult result = new SimResult(t, finalScore);
+					result.setSpellingScore(weightedSpellingSum / finalTotalWeight);
+					result.setSpellingScoreDetails(spellingDetails);
+					result.setPhoneticScore(weightedPhoneticSum / finalTotalWeight);
+					result.setPhoneticScoreDetails(phoneticDetails);
+					
+					return result;
 				})
 				.filter(p -> p != null && p.getScore() >= threshold)
 				.distinct()

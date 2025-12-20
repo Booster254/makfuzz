@@ -1,25 +1,30 @@
 package j25.core;
 
 import java.util.Arrays;
-
 import lombok.Data;
 
 @Data
 public class SimResult implements Comparable<SimResult> {
-	
+    
     private String[] candidate; 
-    private double score;
-    private double[] scoreDetails;
+    private double score; // Total combined weighted score used for sorting
 
-    public SimResult(String[] candidate, double score, double[] scoreDetails) {
+    // Spelling Similarity Details (Apache Commons Text)
+    private double spellingScore;
+    private double[] spellingScoreDetails;
+
+    // Phonetic Similarity Details (Double Metaphone)
+    private double phoneticScore;
+    private double[] phoneticScoreDetails;
+
+    public SimResult(String[] candidate, double score) {
         this.candidate = candidate;
-        this.scoreDetails = scoreDetails;
         this.score = score;
     }
 
     @Override
     public int compareTo(SimResult other) {
-        // Sort by score DESCENDING
+        // Sort by total score DESCENDING
         return Double.compare(other.score, this.score);
     }
 
@@ -33,14 +38,9 @@ public class SimResult implements Comparable<SimResult> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         SimResult other = (SimResult) obj;
         return Arrays.equals(candidate, other.candidate);
     }
-
 }
