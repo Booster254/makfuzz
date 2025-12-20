@@ -29,12 +29,6 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import com.formdev.flatlaf.FlatClientProperties;
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.makfuzz.core.Fuzz;
-import com.makfuzz.core.Criteria;
-import com.makfuzz.core.SimResult;
-
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 
@@ -49,6 +43,12 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.FlatIntelliJLaf;
+import com.makfuzz.core.Criteria;
+import com.makfuzz.core.Fuzz;
+import com.makfuzz.core.SimResult;
 
 public class UI extends JFrame {
     private List<String[]> database;
@@ -94,12 +94,12 @@ public class UI extends JFrame {
 
         // 0. App Title Section
         JPanel titleBox = new JPanel(new BorderLayout());
-        JLabel appTitle = new JLabel("J25 FUZZY MATCHER");
+        JLabel appTitle = new JLabel("FUZZY MATCHER");
         appTitle.setFont(new Font("SansSerif", Font.BOLD, 22));
         appTitle.setForeground(new Color(63, 81, 181));
         titleBox.add(appTitle, BorderLayout.WEST);
         
-        JLabel appSubtitle = new JLabel("v4.0 Pro | Optimized Similarity Engine");
+        JLabel appSubtitle = new JLabel("Optimized Similarity Engine");
         appSubtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
         appSubtitle.setForeground(Color.GRAY);
         titleBox.add(appSubtitle, BorderLayout.SOUTH);
