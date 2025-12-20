@@ -2,6 +2,7 @@ package j25.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -27,6 +28,13 @@ import javax.swing.UIManager;
 import javax.swing.table.DefaultTableModel;
 
 import org.apache.commons.io.FileUtils;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 
 import j25.core.BestMatchV4;
 import j25.core.Criteria;
@@ -40,6 +48,8 @@ public class SearchUI extends JFrame {
     // UI Components
     private CriteriaLine fnLine;
     private CriteriaLine lnLine;
+    private JTextField globalThresholdField;
+    private JTextField topNField;
     private JLabel statusLabel;
     
     public SearchUI() {
@@ -87,16 +97,35 @@ public class SearchUI extends JFrame {
         mainPanel.add(fnLine);
         mainPanel.add(lnLine);
 
+        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        
+        bottomBar.add(new JLabel("Global Score Threshold:"));
+        globalThresholdField = new JTextField("0.3", 5);
+        globalThresholdField.addActionListener(e -> { globalThresholdField.selectAll(); performSearch(); });
+        bottomBar.add(globalThresholdField);
+
+        bottomBar.add(new JLabel("Top N:"));
+        topNField = new JTextField("1000", 5);
+        topNField.addActionListener(e -> { topNField.selectAll(); performSearch(); });
+        bottomBar.add(topNField);
+
         JButton executeBtn = new JButton("Run Search");
         executeBtn.setBackground(new Color(70, 130, 180));
         executeBtn.setForeground(Color.WHITE);
         executeBtn.setFocusPainted(false);
         executeBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
         executeBtn.addActionListener(e -> performSearch());
+        bottomBar.add(executeBtn);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btnPanel.add(executeBtn);
-        mainPanel.add(btnPanel);
+        JButton csvBtn = new JButton("Export CSV");
+        csvBtn.addActionListener(e -> exportToCSV());
+        bottomBar.add(csvBtn);
+
+        JButton excelBtn = new JButton("Export Excel");
+        excelBtn.addActionListener(e -> exportToExcel());
+        bottomBar.add(excelBtn);
+
+        mainPanel.add(bottomBar);
 
         add(mainPanel, BorderLayout.NORTH);
     }
@@ -142,7 +171,9 @@ public class SearchUI extends JFrame {
             criteriaList.add(fnLine.getCriteria());
             criteriaList.add(lnLine.getCriteria());
             
-            List<SimResult> results = BestMatchV4.bestMatch(database, criteriaList, 0.0, 500);
+            double globalThreshold = Double.parseDouble(globalThresholdField.getText());
+            int topN = Integer.parseInt(topNField.getText());
+            List<SimResult> results = BestMatchV4.bestMatch(database, criteriaList, globalThreshold, topN);
             
             tableModel.setRowCount(0);
             int rowIndex = 1;
@@ -175,6 +206,213 @@ public class SearchUI extends JFrame {
             e.printStackTrace(); 
             JOptionPane.showMessageDialog(this, "Search error: " + e.getMessage());
         }
+    }
+    private File getNextFile(File file) {
+        String parent = file.getParent();
+        String name = file.getName();
+        String base = name;
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) {
+            base = name.substring(0, dot);
+            ext = name.substring(dot);
+        }
+
+        int count = 1;
+        // Check if name already has a suffix like "-1", "-2"
+        if (base.contains("-")) {
+            int dash = base.lastIndexOf('-');
+            try {
+                count = Integer.parseInt(base.substring(dash + 1)) + 1;
+                base = base.substring(0, dash);
+            } catch (NumberFormatException e) {
+                // Not a numeric suffix, just append -1
+            }
+        }
+
+        return new File(parent, base + "-" + count + ext);
+    }
+
+    private void exportToCSV() {
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No data to export.");
+            return;
+        }
+        promptAndSaveCSV(new File("search_results.csv"));
+    }
+
+    private void promptAndSaveCSV(File initialFile) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(initialFile);
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = chooser.getSelectedFile();
+            if (selectedFile.exists()) {
+                int response = JOptionPane.showConfirmDialog(this,
+                    "The file '" + selectedFile.getName() + "' already exists. Do you want to replace it?",
+                    "Confirm Overwrite",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                
+                if (response == JOptionPane.NO_OPTION) {
+                    promptAndSaveCSV(getNextFile(selectedFile));
+                    return;
+                } else if (response != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+            saveCSV(selectedFile);
+        }
+    }
+
+    private void saveCSV(File file) {
+        try (FileWriter out = new FileWriter(file)) {
+            for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                out.write(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "" : ","));
+            }
+            out.write("\n");
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                    Object val = tableModel.getValueAt(i, j);
+                    out.write((val == null ? "" : val.toString()) + (j == tableModel.getColumnCount() - 1 ? "" : ","));
+                }
+                out.write("\n");
+            }
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(file);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Export failed: " + e.getMessage());
+        }
+    }
+
+    private void exportToExcel() {
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No data to export.");
+            return;
+        }
+        promptAndSaveExcel(new File("search_results.xlsx"));
+    }
+
+    private void promptAndSaveExcel(File initialFile) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(initialFile);
+        chooser.setFileFilter(new FileNameExtensionFilter("Excel Files", "xlsx"));
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = chooser.getSelectedFile();
+            if (selectedFile.exists()) {
+                int response = JOptionPane.showConfirmDialog(this,
+                    "The file '" + selectedFile.getName() + "' already exists. Do you want to replace it?",
+                    "Confirm Overwrite",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                
+                if (response == JOptionPane.NO_OPTION) {
+                    promptAndSaveExcel(getNextFile(selectedFile));
+                    return;
+                } else if (response != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+            saveExcel(selectedFile);
+        }
+    }
+
+    private void saveExcel(File selectedFile) {
+        try (Workbook workbook = new XSSFWorkbook();
+             FileOutputStream fileOut = new FileOutputStream(selectedFile)) {
+                
+                Sheet sheet = workbook.createSheet("Search Results");
+                
+                // Styling
+                org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+                headerFont.setBold(true);
+                headerFont.setColor(IndexedColors.WHITE.getIndex());
+                
+                CellStyle headerStyle = workbook.createCellStyle();
+                headerStyle.setFont(headerFont);
+                headerStyle.setFillForegroundColor(IndexedColors.CORNFLOWER_BLUE.getIndex());
+                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                headerStyle.setAlignment(HorizontalAlignment.CENTER);
+                headerStyle.setBorderTop(BorderStyle.THIN);
+                headerStyle.setBorderBottom(BorderStyle.THIN);
+                headerStyle.setBorderLeft(BorderStyle.THIN);
+                headerStyle.setBorderRight(BorderStyle.THIN);
+
+                CellStyle defaultStyle = workbook.createCellStyle();
+                defaultStyle.setBorderTop(BorderStyle.THIN);
+                defaultStyle.setBorderBottom(BorderStyle.THIN);
+                defaultStyle.setBorderLeft(BorderStyle.THIN);
+                defaultStyle.setBorderRight(BorderStyle.THIN);
+
+                CellStyle percentStyle = workbook.createCellStyle();
+                percentStyle.setDataFormat(workbook.createDataFormat().getFormat("0%"));
+                percentStyle.setAlignment(HorizontalAlignment.RIGHT);
+                percentStyle.setBorderTop(BorderStyle.THIN);
+                percentStyle.setBorderBottom(BorderStyle.THIN);
+                percentStyle.setBorderLeft(BorderStyle.THIN);
+                percentStyle.setBorderRight(BorderStyle.THIN);
+
+                CellStyle percentDecimalStyle = workbook.createCellStyle();
+                percentDecimalStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
+                percentDecimalStyle.setAlignment(HorizontalAlignment.RIGHT);
+                percentDecimalStyle.setBorderTop(BorderStyle.THIN);
+                percentDecimalStyle.setBorderBottom(BorderStyle.THIN);
+                percentDecimalStyle.setBorderLeft(BorderStyle.THIN);
+                percentDecimalStyle.setBorderRight(BorderStyle.THIN);
+                
+                // Create Header Row
+                Row headerRow = sheet.createRow(0);
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    Cell cell = headerRow.createCell(i);
+                    cell.setCellValue(tableModel.getColumnName(i));
+                    cell.setCellStyle(headerStyle);
+                }
+
+                // Create Data Rows
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    Row row = sheet.createRow(i + 1);
+                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                        Cell cell = row.createCell(j);
+                        Object val = tableModel.getValueAt(i, j);
+                        String strVal = (val == null) ? "" : val.toString();
+
+                        if (strVal.endsWith("%")) {
+                            try {
+                                // Parse e.g. "91%" -> 91.0 or "77.48%" -> 77.48
+                                double numericVal = Double.parseDouble(strVal.replace("%", ""));
+                                cell.setCellValue(numericVal / 100.0);
+                                if (strVal.contains(".")) {
+                                    cell.setCellStyle(percentDecimalStyle);
+                                } else {
+                                    cell.setCellStyle(percentStyle);
+                                }
+                            } catch (NumberFormatException e) {
+                                cell.setCellValue(strVal);
+                            }
+                        } else if (val instanceof Number) {
+                            cell.setCellValue(((Number) val).doubleValue());
+                            cell.setCellStyle(defaultStyle);
+                        } else {
+                            cell.setCellValue(strVal);
+                            cell.setCellStyle(defaultStyle);
+                        }
+                    }
+                }
+
+                // Auto-size columns
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    sheet.autoSizeColumn(i);
+                }
+
+                workbook.write(fileOut);
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(selectedFile);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Export failed: " + e.getMessage());
+            }
     }
 
     private static class CriteriaLine extends JPanel {

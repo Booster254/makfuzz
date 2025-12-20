@@ -103,17 +103,20 @@ public class BestMatchV4 {
 							if (code1.equals(code2)) {
 								phoneticScore = 1.0;
 							} else {
-								phoneticScore = SPELLING_STRATEGY.apply(code1, code2);
+								// Clean up Beider-Morse noise "(|)" for better fuzzy comparison
+								String clean1 = code1.replaceAll("[()|]", "");
+								String clean2 = code2.replaceAll("[()|]", "");
+								phoneticScore = SPELLING_STRATEGY.apply(clean1, clean2);
 							}
 
 							// Calculation based on user formula: average of spelling and phonetic
 							choiceScore = (spellingScore + phoneticScore) / 2.0;
-							
-							// Check if the result meets either threshold to be considered a "match" at all
+
+							// STRICT FILTERING: Must pass BOTH thresholds independently
 							boolean spellingPasses = spellingScore >= cI.minSpellingScore;
 							boolean phoneticPasses = phoneticScore >= cI.minPhoneticScore;
 							
-							if (!spellingPasses && !phoneticPasses) {
+							if (!spellingPasses || !phoneticPasses) {
 								return null;
 							}
 						}
@@ -137,7 +140,7 @@ public class BestMatchV4 {
 				})
 				.filter(p -> p != null && p.getScore() >= threshold)
 				.distinct()
-				.sorted()
+				.sorted(java.util.Comparator.comparingDouble(SimResult::getScore).reversed())
 				.limit(topN)
 				.collect(Collectors.toList());
 	}
