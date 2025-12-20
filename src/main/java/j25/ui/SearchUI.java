@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -28,6 +29,8 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.FlatIntelliJLaf;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 
@@ -61,25 +64,62 @@ public class SearchUI extends JFrame {
     private JLabel statusLabel;
     
     public SearchUI() {
-        setTitle("Fuzzy Search Tester (BestMatchV4)");
-        setSize(1300, 700);
+        // Apply Modern Theme
+        try {
+            UIManager.setLookAndFeel(new FlatIntelliJLaf());
+            UIManager.put("Button.arc", 8);
+            UIManager.put("Component.arc", 8);
+            UIManager.put("ProgressBar.arc", 8);
+            UIManager.put("TextComponent.arc", 8);
+            UIManager.put("Component.focusWidth", 1);
+            UIManager.put("ScrollBar.trackArc", 999);
+            UIManager.put("ScrollBar.thumbArc", 999);
+            UIManager.put("ScrollBar.track", new Color(0xf5f5f5));
+        } catch (Exception ignored) {}
+
+        setTitle("Fuzzy Search Pro ✨");
+        setSize(1400, 850);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
-        
+
         setupUI();
-        
+
         setLocationRelativeTo(null);
     }
 
     private void setupUI() {
         JPanel headerPanel = new JPanel();
         headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
 
-        // 1. Data Source Panel
-        JPanel sourcePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        sourcePanel.setBorder(BorderFactory.createTitledBorder("Data Source"));
+        // 0. App Title Section
+        JPanel titleBox = new JPanel(new BorderLayout());
+        JLabel appTitle = new JLabel("J25 FUZZY MATCHER");
+        appTitle.setFont(new Font("SansSerif", Font.BOLD, 22));
+        appTitle.setForeground(new Color(63, 81, 181));
+        titleBox.add(appTitle, BorderLayout.WEST);
+        
+        JLabel appSubtitle = new JLabel("v4.0 Pro | Optimized Similarity Engine");
+        appSubtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        appSubtitle.setForeground(Color.GRAY);
+        titleBox.add(appSubtitle, BorderLayout.SOUTH);
+        headerPanel.add(titleBox);
+        headerPanel.add(Box.createVerticalStrut(20));
+
+        // 1. Data Source Card
+        JPanel sourcePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+        sourcePanel.putClientProperty(FlatClientProperties.STYLE, "arc: 15; background: #ffffff; outlineWidth: 1; outlineColor: #e0e0e0");
+        
+        JLabel srcLabel = new JLabel("Data Source:");
+        srcLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+        sourcePanel.add(srcLabel);
+
         sourcePathField = new JTextField("./names.csv", 60);
-        JButton browseBtn = new JButton("Browse...");
+        sourcePathField.putClientProperty(FlatClientProperties.STYLE, "showClearButton: true; arc: 8");
+        sourcePathField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Select source CSV...");
+        
+        JButton browseBtn = new JButton("Browse");
+        browseBtn.putClientProperty(FlatClientProperties.STYLE, "buttonType: toolBarButton; focusWidth: 0");
         browseBtn.addActionListener(e -> {
             JFileChooser chooser = new JFileChooser(new File("."));
             chooser.setFileFilter(new FileNameExtensionFilter("CSV Files", "csv"));
@@ -88,19 +128,36 @@ public class SearchUI extends JFrame {
             }
         });
 
-        sourcePanel.add(new JLabel("CSV File:"));
         sourcePanel.add(sourcePathField);
         sourcePanel.add(browseBtn);
 
-        // 2. Search Panel
-        setupTopPanel(headerPanel);
+        headerPanel.add(sourcePanel);
+        headerPanel.add(Box.createVerticalStrut(15));
 
-        headerPanel.add(sourcePanel, 0); // Add at the top
+        // 2. Search Card
+        setupTopPanel(headerPanel);
 
         add(headerPanel, BorderLayout.NORTH);
 
         // 3. Table Panel
         setupCenterPanel();
+        
+        // 4. Status Bar
+        JPanel statusBar = new JPanel(new BorderLayout());
+        statusBar.setBackground(new Color(63, 81, 181));
+        statusBar.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        
+        statusLabel = new JLabel("Engine ready...");
+        statusLabel.setForeground(Color.WHITE);
+        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        statusBar.add(statusLabel, BorderLayout.WEST);
+        
+        JLabel versionLabel = new JLabel("BETA 2026-12");
+        versionLabel.setForeground(new Color(255, 255, 255, 180));
+        versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        statusBar.add(versionLabel, BorderLayout.EAST);
+        
+        add(statusBar, BorderLayout.SOUTH);
     }
     
     private void loadData(String path) {
@@ -131,7 +188,13 @@ public class SearchUI extends JFrame {
     private void setupTopPanel(JPanel parent) {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBorder(BorderFactory.createTitledBorder("Search Criteria"));
+        mainPanel.putClientProperty(FlatClientProperties.STYLE, "arc: 15; background: #ffffff; outlineWidth: 1; outlineColor: #e0e0e0");
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        JLabel criteriaLabel = new JLabel("Search Configuration:");
+        criteriaLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+        criteriaLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        mainPanel.add(criteriaLabel);
 
         fnLine = new CriteriaLine("First Name:", "", this::performSearch);
         lnLine = new CriteriaLine("Last Name:", "", this::performSearch);
@@ -141,29 +204,36 @@ public class SearchUI extends JFrame {
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         
-        bottomBar.add(new JLabel("Global Score Threshold:"));
-        globalThresholdField = new JTextField("0.3", 5);
+        bottomBar.add(new JLabel("Global Threshold:"));
+        globalThresholdField = new JTextField("0.3", 4);
+        globalThresholdField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; horizontalAlignment: center");
         globalThresholdField.addActionListener(e -> { globalThresholdField.selectAll(); performSearch(); });
         bottomBar.add(globalThresholdField);
 
-        bottomBar.add(new JLabel("Top N:"));
+        bottomBar.add(Box.createHorizontalStrut(15));
+        bottomBar.add(new JLabel("Top N Limit:"));
         topNField = new JTextField("1000", 5);
+        topNField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; horizontalAlignment: center");
         topNField.addActionListener(e -> { topNField.selectAll(); performSearch(); });
         bottomBar.add(topNField);
+        bottomBar.add(Box.createHorizontalStrut(15));
 
         JButton executeBtn = new JButton("Run Search");
-        executeBtn.setBackground(new Color(70, 130, 180));
+        executeBtn.setBackground(new Color(63, 81, 181));
         executeBtn.setForeground(Color.WHITE);
+        executeBtn.putClientProperty(FlatClientProperties.STYLE, "hoverBackground: #303F9F; pressedBackground: #1a237e; arc: 10");
         executeBtn.setFocusPainted(false);
         executeBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
         executeBtn.addActionListener(e -> performSearch());
         bottomBar.add(executeBtn);
 
         JButton csvBtn = new JButton("Export CSV");
+        csvBtn.putClientProperty(FlatClientProperties.STYLE, "buttonType: toolBarButton");
         csvBtn.addActionListener(e -> exportToCSV());
         bottomBar.add(csvBtn);
 
         JButton excelBtn = new JButton("Export Excel");
+        excelBtn.putClientProperty(FlatClientProperties.STYLE, "buttonType: toolBarButton");
         excelBtn.addActionListener(e -> exportToExcel());
         bottomBar.add(excelBtn);
 
@@ -185,8 +255,14 @@ public class SearchUI extends JFrame {
         };
         resultTable = new JTable(tableModel);
         resultTable.getTableHeader().setReorderingAllowed(false);
-        resultTable.setFillsViewportHeight(true);
+        resultTable.setShowGrid(true);
+        resultTable.setGridColor(new Color(230, 230, 230));
         resultTable.setRowHeight(25);
+        resultTable.setSelectionBackground(new Color(232, 234, 246));
+        resultTable.setSelectionForeground(Color.BLACK);
+        
+        // Modern alternating colors
+        resultTable.putClientProperty(FlatClientProperties.STYLE, "showHorizontalLines: true; showVerticalLines: true; rowHeight: 28; alternatingRowColor: #f9f9f9");
         
         // Adjust column widths roughly
         resultTable.getColumnModel().getColumn(0).setPreferredWidth(40); // Index column
@@ -196,12 +272,7 @@ public class SearchUI extends JFrame {
         JScrollPane scrollPane = new JScrollPane(resultTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
         
-        statusLabel = new JLabel("Total found: 0");
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 10));
-        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-        
         JPanel centerPanel = new JPanel(new BorderLayout());
-        centerPanel.add(statusLabel, BorderLayout.NORTH);
         centerPanel.add(scrollPane, BorderLayout.CENTER);
         
         add(centerPanel, BorderLayout.CENTER);
@@ -475,35 +546,42 @@ public class SearchUI extends JFrame {
 
         public CriteriaLine(String label, String defaultValue, Runnable onEnter) {
             this.onEnter = onEnter;
-            setLayout(new FlowLayout(FlowLayout.LEFT, 10, 5));
+            setLayout(new FlowLayout(FlowLayout.LEFT, 12, 8));
+            setOpaque(false);
             
             JLabel lbl = new JLabel(label);
+            lbl.setFont(new Font("SansSerif", Font.BOLD, 13));
             lbl.setPreferredSize(new Dimension(100, 25));
             add(lbl);
 
-            valueField = new JTextField(defaultValue, 15);
+            add(new JLabel("Value:"));
+            valueField = new JTextField(defaultValue, 12);
+            valueField.putClientProperty(FlatClientProperties.STYLE, "arc: 8");
             valueField.addActionListener(e -> { valueField.selectAll(); onEnter.run(); });
-            add(new JLabel("Val:"));
             add(valueField);
 
+            add(new JLabel("Type:"));
             typeCombo = new JComboBox<>(Criteria.MatchingType.values());
             typeCombo.setSelectedItem(Criteria.MatchingType.SIMILARITY);
-            add(new JLabel("Type:"));
+            typeCombo.putClientProperty(FlatClientProperties.STYLE, "arc: 8");
             add(typeCombo);
 
-            weightField = new JTextField("1.0", 4);
+            add(new JLabel("Weight:"));
+            weightField = new JTextField("1.0", 3);
+            weightField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; horizontalAlignment: center");
             weightField.addActionListener(e -> { weightField.selectAll(); onEnter.run(); });
-            add(new JLabel("W:"));
             add(weightField);
 
             minSpellingLabel = new JLabel("Min Spell:");
             minSpellingField = new JTextField("0.8", 4);
+            minSpellingField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; horizontalAlignment: center");
             minSpellingField.addActionListener(e -> { minSpellingField.selectAll(); onEnter.run(); });
             add(minSpellingLabel);
             add(minSpellingField);
 
             minPhoneticLabel = new JLabel("Min Phon:");
             minPhoneticField = new JTextField("0.8", 4);
+            minPhoneticField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; horizontalAlignment: center");
             minPhoneticField.addActionListener(e -> { minPhoneticField.selectAll(); onEnter.run(); });
             add(minPhoneticLabel);
             add(minPhoneticField);
@@ -550,9 +628,6 @@ public class SearchUI extends JFrame {
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
             new SearchUI().setVisible(true);
         });
     }
