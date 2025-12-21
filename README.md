@@ -91,6 +91,14 @@ MakFuzz isn't just a tool; it's a productivity booster designed to make data cle
 
 ---
 
+## 🗺️ Roadmap
+We're constantly evolving! Here’s what we're planning for future releases:
+- [ ] **Dynamic Column Support**: Load any CSV file regardless of its structure.
+- [ ] **Generic Criteria Mapping**: Match any number of columns with custom labels (not just First Name/Last Name).
+- [ ] **Auto-Detection**: Smart detection of column types and suggested weights.
+
+---
+
 ## 💖 Support the Development
 
 **Love the tool?** Help keep the algorithms fuzzy and the UI crisp! Your support fuels future updates and keeps the caffeine flowing. ☕✨
