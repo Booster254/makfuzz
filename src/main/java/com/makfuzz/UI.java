@@ -171,24 +171,27 @@ public class UI extends JFrame {
         statusLabel.setForeground(Color.WHITE);
         statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
         statusLabel.setVerticalAlignment(JLabel.TOP);
-        statusLabel.setVerticalAlignment(JLabel.TOP);
-        statusBar.add(statusLabel, BorderLayout.WEST);
-        
-        JPanel eastStatusPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        eastStatusPanel.setOpaque(false);
         
         totalLabel = new JLabel("Total Found: 0");
         totalLabel.setForeground(Color.WHITE);
         totalLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+        totalLabel.setVerticalAlignment(JLabel.TOP);
+        
+        // Container for Status Table and Total Label (West)
+        JPanel westStatusPanel = new JPanel();
+        westStatusPanel.setLayout(new BoxLayout(westStatusPanel, BoxLayout.X_AXIS));
+        westStatusPanel.setOpaque(false);
+        westStatusPanel.add(statusLabel);
+        westStatusPanel.add(Box.createHorizontalStrut(50));
+        westStatusPanel.add(totalLabel);
+        
+        statusBar.add(westStatusPanel, BorderLayout.WEST);
         
         JLabel versionLabel = new JLabel("POC 2025-12");
         versionLabel.setForeground(new Color(255, 255, 255, 180));
         versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
         
-        eastStatusPanel.add(totalLabel);
-        eastStatusPanel.add(versionLabel);
-        
-        statusBar.add(eastStatusPanel, BorderLayout.EAST);
+        statusBar.add(versionLabel, BorderLayout.EAST);
         
         add(statusBar, BorderLayout.SOUTH);
     }
@@ -454,17 +457,17 @@ public class UI extends JFrame {
             
             
             // Build status message with candidate details using an aligned HTML table
-            StringBuilder statusMsg = new StringBuilder("<html><table border='0' cellspacing='5' cellpadding='0'>");
+            StringBuilder statusMsg = new StringBuilder("<html><table border='0' cellspacing='0' cellpadding='0'>");
             
             // Header Row
             statusMsg.append("<tr>");
-            statusMsg.append("<td align='left'><b>Metric</b></td>");
-            statusMsg.append("<td align='right'><b>Total</b></td>");
-            statusMsg.append("<td align='left'><b>FN</b></td>");
-            statusMsg.append("<td align='right'><b>S%</b></td>");
-            statusMsg.append("<td align='right'><b>P%</b></td>");
-            statusMsg.append("<td align='left'><b>LN</b></td>");
-            statusMsg.append("<td align='right'><b>S%</b></td>");
+            statusMsg.append("<td align='left'><b>Metric</b></td><td width='20'></td>");
+            statusMsg.append("<td align='right'><b>Total</b></td><td width='20'></td>");
+            statusMsg.append("<td align='left'><b>FN</b></td><td width='20'></td>");
+            statusMsg.append("<td align='right'><b>S%</b></td><td width='20'></td>");
+            statusMsg.append("<td align='right'><b>P%</b></td><td width='20'></td>");
+            statusMsg.append("<td align='left'><b>LN</b></td><td width='20'></td>");
+            statusMsg.append("<td align='right'><b>S%</b></td><td width='20'></td>");
             statusMsg.append("<td align='right'><b>P%</b></td>");
             statusMsg.append("</tr>");
 
@@ -503,14 +506,10 @@ public class UI extends JFrame {
     
     private void generateStatusRow(StringBuilder sb, String label, SimResult result, double threshold) {
         sb.append("<tr>");
-        sb.append("<td align='left'><b>").append(label).append("</b></td>");
+        sb.append("<td align='left'><b>").append(label).append("</b></td><td width='20'></td>");
         
         if (result != null) {
-            // Total Score (using the threshold value for Max Under/Min Above to show the boundary, 
-            // or we could show result.getScore(). Let's show the threshold if that's what was requested in previous logic,
-            // but usually for "Max Under" we want the score of that candidate. 
-            // Previous code used 'searchResult.getMaxUnderThreshold()' which seems to be the SCORE of that candidate.
-            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td>");
+            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td><td width='20'></td>");
             
             String[] cand = result.getCandidate();
             double[] sDetails = result.getSpellingScoreDetails();
@@ -518,25 +517,27 @@ public class UI extends JFrame {
             
             // First Name
             if (cand.length > 0) {
-                sb.append("<td align='left'>").append(cand[0]).append("</td>");
-                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 0 ? String.format("%.0f%%", sDetails[0]*100) : "-").append("</td>");
-                sb.append("<td align='right'>").append(pDetails != null && pDetails.length > 0 ? String.format("%.0f%%", pDetails[0]*100) : "-").append("</td>");
+                sb.append("<td align='left'>").append(cand[0]).append("</td><td width='20'></td>");
+                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 0 ? String.format("%.0f%%", sDetails[0]*100) : "-").append("</td><td width='20'></td>");
+                sb.append("<td align='right'>").append(pDetails != null && pDetails.length > 0 ? String.format("%.0f%%", pDetails[0]*100) : "-").append("</td><td width='20'></td>");
             } else {
-                sb.append("<td>-</td><td>-</td><td>-</td>");
+                sb.append("<td>-</td><td></td><td>-</td><td></td><td>-</td><td></td>");
             }
             
             // Last Name
             if (cand.length > 1) {
-                sb.append("<td align='left'>").append(cand[1]).append("</td>");
-                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 1 ? String.format("%.0f%%", sDetails[1]*100) : "-").append("</td>");
+                sb.append("<td align='left'>").append(cand[1]).append("</td><td width='20'></td>");
+                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 1 ? String.format("%.0f%%", sDetails[1]*100) : "-").append("</td><td width='20'></td>");
                 sb.append("<td align='right'>").append(pDetails != null && pDetails.length > 1 ? String.format("%.0f%%", pDetails[1]*100) : "-").append("</td>");
             } else {
-               sb.append("<td>-</td><td>-</td><td>-</td>");
+               sb.append("<td>-</td><td></td><td>-</td><td></td><td>-</td>");
             }
         } else {
-            // No result for this category
-            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td>"); // Show threshold/score even if null? Likely 0.0 or just empty
-            sb.append("<td colspan='6' align='center'>-</td>");
+            // No result for this category - spans + spacers needed? Or just fill
+            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td>"); 
+             // Fill remaining columns: 5 data cols + 5 spacers?
+             // Actually simplest to just colspan the rest
+            sb.append("<td colspan='11' align='center'>-</td>");
         }
         sb.append("</tr>");
     }
