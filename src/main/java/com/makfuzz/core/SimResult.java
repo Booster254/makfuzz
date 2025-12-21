@@ -16,6 +16,8 @@ public class SimResult implements Comparable<SimResult> {
     // Phonetic Similarity Details (Double Metaphone)
     private double phoneticScore;
     private double[] phoneticScoreDetails;
+    
+    private boolean valid = true; // Default to true
 
     public SimResult(String[] candidate, double score) {
         this.candidate = candidate;

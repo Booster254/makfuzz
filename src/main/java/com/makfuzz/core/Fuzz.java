@@ -69,6 +69,7 @@ public class Fuzz {
 					double weightedChoiceSum = 0d;
 					double weightedSpellingSum = 0d;
 					double weightedPhoneticSum = 0d;
+					boolean isCandidateValid = true;
 
 					for (int i : activeIndexes) {
 						Criteria cI = criterias.get(i);
@@ -118,7 +119,7 @@ public class Fuzz {
 							boolean phoneticPasses = phoneticScore >= cI.minPhoneticScore;
 							
 							if (!spellingPasses || !phoneticPasses) {
-								return null;
+								isCandidateValid = false;
 							}
 						}
 
@@ -136,6 +137,7 @@ public class Fuzz {
 					result.setSpellingScoreDetails(spellingDetails);
 					result.setPhoneticScore(weightedPhoneticSum / finalTotalWeight);
 					result.setPhoneticScoreDetails(phoneticDetails);
+					result.setValid(isCandidateValid);
 					
 					return result;
 				})
@@ -144,12 +146,12 @@ public class Fuzz {
 				.collect(Collectors.toList());
 
 		List<SimResult> above = allPotential.stream()
-				.filter(p -> p.getScore() >= threshold)
+				.filter(p -> p.isValid() && p.getScore() >= threshold)
 				.sorted()
 				.collect(Collectors.toList());
 
 		SimResult maxUnderCandidate = allPotential.stream()
-				.filter(p -> p.getScore() < threshold)
+				.filter(p -> !p.isValid() || p.getScore() < threshold)
 				.max(java.util.Comparator.comparingDouble(SimResult::getScore))
 				.orElse(null);
 
