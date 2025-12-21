@@ -21,11 +21,11 @@ public class Fuzz {
 	// This makes a HUGE difference in performance on large datasets
 	private static final java.util.Map<String, String> PHONETIC_CACHE = new java.util.concurrent.ConcurrentHashMap<>(2000);
 
-	public static List<SimResult> bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
+	public static SearchResult bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
 			int topN) {
 
 		if (criterias == null || criterias.isEmpty()) {
-			return java.util.Collections.emptyList();
+			return new SearchResult(java.util.Collections.emptyList(), 0, 0, 0, null, null, null, 0);
 		}
 
 		int count = criterias.size();
@@ -48,20 +48,21 @@ public class Fuzz {
 		}
 
 		if (activeIndexes.isEmpty()) {
-			return candidates.stream()
+			List<SimResult> defaultResults = candidates.stream()
 					.limit(topN)
 					.map(t -> new SimResult(t, 1.0))
 					.collect(Collectors.toList());
+			return new SearchResult(defaultResults, 0, 1.0, 1.0, null, null, null, candidates.size());
 		}
 
 		if (totalWeight <= 0) {
-			return java.util.Collections.emptyList();
+			return new SearchResult(java.util.Collections.emptyList(), 0, 0, 0, null, null, null, 0);
 		}
 
 		final double finalTotalWeight = totalWeight;
 
-		// Use parallelStream for faster processing on large datasets
-		return candidates.parallelStream()
+		// We need to collect all that pass criteria to calculate stats accurately
+		List<SimResult> allPotential = candidates.parallelStream()
 				.map(t -> {
 					double[] spellingDetails = new double[count];
 					double[] phoneticDetails = new double[count];
@@ -138,10 +139,30 @@ public class Fuzz {
 					
 					return result;
 				})
-				.filter(p -> p != null && p.getScore() >= threshold)
+				.filter(p -> p != null)
 				.distinct()
-				.sorted(java.util.Comparator.comparingDouble(SimResult::getScore).reversed())
-				.limit(topN)
 				.collect(Collectors.toList());
+
+		List<SimResult> above = allPotential.stream()
+				.filter(p -> p.getScore() >= threshold)
+				.sorted()
+				.collect(Collectors.toList());
+
+		SimResult maxUnderCandidate = allPotential.stream()
+				.filter(p -> p.getScore() < threshold)
+				.max(java.util.Comparator.comparingDouble(SimResult::getScore))
+				.orElse(null);
+
+		double maxUnder = maxUnderCandidate != null ? maxUnderCandidate.getScore() : 0.0;
+
+		SimResult minAboveCandidate = above.isEmpty() ? null : above.get(above.size() - 1);
+		SimResult maxAboveCandidate = above.isEmpty() ? null : above.get(0);
+		
+		double minAbove = minAboveCandidate != null ? minAboveCandidate.getScore() : 0.0;
+		double maxAbove = maxAboveCandidate != null ? maxAboveCandidate.getScore() : 0.0;
+
+		List<SimResult> results = above.stream().limit(topN).collect(Collectors.toList());
+
+		return new SearchResult(results, maxUnder, minAbove, maxAbove, maxUnderCandidate, minAboveCandidate, maxAboveCandidate, above.size());
 	}
 }

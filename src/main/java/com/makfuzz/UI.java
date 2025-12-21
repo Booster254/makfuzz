@@ -25,8 +25,10 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -48,6 +50,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatIntelliJLaf;
 import com.makfuzz.core.Criteria;
 import com.makfuzz.core.Fuzz;
+import com.makfuzz.core.SearchResult;
 import com.makfuzz.core.SimResult;
 
 public class UI extends JFrame {
@@ -55,11 +58,16 @@ public class UI extends JFrame {
     private JTable resultTable;
     private DefaultTableModel tableModel;
     
+    // Sorting state
+    private List<Object[]> originalTableData;
+    private int lastSortedColumn = -1;
+    private int sortState = 0; // 0 = unsorted, 1 = descending, 2 = ascending
+    
     // UI Components
     private CriteriaLine fnLine;
     private CriteriaLine lnLine;
     private JTextField sourcePathField;
-    private JTextField globalThresholdField;
+    private JSpinner globalThresholdField;
     private JTextField topNField;
     private JLabel statusLabel;
     
@@ -145,16 +153,17 @@ public class UI extends JFrame {
         // 4. Status Bar
         JPanel statusBar = new JPanel(new BorderLayout());
         statusBar.setBackground(new Color(63, 81, 181));
-        statusBar.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        statusBar.setBorder(BorderFactory.createEmptyBorder(3, 15, 3, 15));
         
-        statusLabel = new JLabel("Engine ready...");
+        statusLabel = new JLabel("<html>Engine ready...</html>");
         statusLabel.setForeground(Color.WHITE);
-        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        statusLabel.setVerticalAlignment(JLabel.TOP);
         statusBar.add(statusLabel, BorderLayout.WEST);
         
-        JLabel versionLabel = new JLabel("BETA 2026-12");
+        JLabel versionLabel = new JLabel("POC 2025-12");
         versionLabel.setForeground(new Color(255, 255, 255, 180));
-        versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
         statusBar.add(versionLabel, BorderLayout.EAST);
         
         add(statusBar, BorderLayout.SOUTH);
@@ -205,9 +214,10 @@ public class UI extends JFrame {
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         
         bottomBar.add(new JLabel("Global Threshold:"));
-        globalThresholdField = new JTextField("0.3", 4);
+        globalThresholdField = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
         globalThresholdField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; ");
-        globalThresholdField.addActionListener(e -> { globalThresholdField.selectAll(); performSearch(); });
+        globalThresholdField.setPreferredSize(new Dimension(80, 30));
+        ((JSpinner.DefaultEditor)globalThresholdField.getEditor()).getTextField().addActionListener(e -> performSearch());
         bottomBar.add(globalThresholdField);
 
         bottomBar.add(Box.createHorizontalStrut(15));
@@ -264,6 +274,17 @@ public class UI extends JFrame {
         // Modern alternating colors
         resultTable.putClientProperty(FlatClientProperties.STYLE, "showHorizontalLines: true; showVerticalLines: true; rowHeight: 28;");
         
+        // Add double-click listener to table header for sorting
+        resultTable.getTableHeader().addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int column = resultTable.columnAtPoint(e.getPoint());
+                    sortTableByColumn(column);
+                }
+            }
+        });
+        
         // Adjust column widths roughly
         resultTable.getColumnModel().getColumn(0).setPreferredWidth(40); // Index column
         resultTable.getColumnModel().getColumn(1).setPreferredWidth(150); // FN column
@@ -290,9 +311,10 @@ public class UI extends JFrame {
             criteriaList.add(fnLine.getCriteria());
             criteriaList.add(lnLine.getCriteria());
             
-            double globalThreshold = Double.parseDouble(globalThresholdField.getText());
+            double globalThreshold = (Double) globalThresholdField.getValue();
             int topN = Integer.parseInt(topNField.getText());
-            List<SimResult> results = Fuzz.bestMatch(database, criteriaList, globalThreshold, topN);
+            SearchResult searchResult = Fuzz.bestMatch(database, criteriaList, globalThreshold, topN);
+            List<SimResult> results = searchResult.getResults();
             
             tableModel.setRowCount(0);
             int rowIndex = 1;
@@ -317,7 +339,89 @@ public class UI extends JFrame {
                     String.format("%.2f%%", res.getScore() * 100)
                 });
             }
-            statusLabel.setText("Total found: " + results.size());
+            
+            
+            // Build status message with candidate details (multi-line HTML)
+            StringBuilder statusMsg = new StringBuilder("<html>");
+            
+            // Total found
+            statusMsg.append(String.format("<b>Total:</b> %d<br>", searchResult.getTotalFound()));
+            
+            // Max Under Threshold
+            if (searchResult.getMaxUnderCandidate() != null) {
+                SimResult maxUnder = searchResult.getMaxUnderCandidate();
+                String[] cand = maxUnder.getCandidate();
+                double[] sDetails = maxUnder.getSpellingScoreDetails();
+                double[] pDetails = maxUnder.getPhoneticScoreDetails();
+                
+                StringBuilder details = new StringBuilder();
+                details.append(String.format("%.2f%% [", searchResult.getMaxUnderThreshold() * 100));
+                
+                // First Name
+                if (cand.length > 0) {
+                    details.append(String.format("FN:%s", cand[0]));
+                    if (sDetails != null && sDetails.length > 0) {
+                        details.append(String.format("(S:%.0f%%,P:%.0f%%)", 
+                            sDetails[0] * 100, 
+                            pDetails != null && pDetails.length > 0 ? pDetails[0] * 100 : 0));
+                    }
+                }
+                
+                // Last Name
+                if (cand.length > 1) {
+                    details.append(String.format(" LN:%s", cand[1]));
+                    if (sDetails != null && sDetails.length > 1) {
+                        details.append(String.format("(S:%.0f%%,P:%.0f%%)", 
+                            sDetails[1] * 100, 
+                            pDetails != null && pDetails.length > 1 ? pDetails[1] * 100 : 0));
+                    }
+                }
+                
+                details.append("]");
+                statusMsg.append("<b>Max Under GT :</b> ").append(details.toString()).append("<br>");
+            } else {
+                statusMsg.append(String.format("<b>Max Under GT :</b> %.2f%%<br>", 
+                    searchResult.getMaxUnderThreshold() * 100));
+            }
+            
+            // Min Above Threshold
+            if (searchResult.getMinAboveCandidate() != null) {
+                String[] cand = searchResult.getMinAboveCandidate().getCandidate();
+                String name = String.join(" ", cand);
+                statusMsg.append(String.format("<b>Min Above GT :</b> %.2f%% (%s)<br>", 
+                    searchResult.getMinAboveThreshold() * 100, name));
+            } else {
+                statusMsg.append(String.format("<b>Min Above:</b> %.2f%%<br>", 
+                    searchResult.getMinAboveThreshold() * 100));
+            }
+            
+            // Max Above Threshold
+            if (searchResult.getMaxAboveCandidate() != null) {
+                String[] cand = searchResult.getMaxAboveCandidate().getCandidate();
+                String name = String.join(" ", cand);
+                statusMsg.append(String.format("<b>Max Above:</b> %.2f%% (%s)", 
+                    searchResult.getMaxAboveThreshold() * 100, name));
+            } else {
+                statusMsg.append(String.format("<b>Max Above:</b> %.2f%%", 
+                    searchResult.getMaxAboveThreshold() * 100));
+            }
+            
+            statusMsg.append("</html>");
+            statusLabel.setText(statusMsg.toString());
+            
+            // Save original table data for sorting
+            originalTableData = new ArrayList<>();
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                Object[] row = new Object[tableModel.getColumnCount()];
+                for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                    row[j] = tableModel.getValueAt(i, j);
+                }
+                originalTableData.add(row);
+            }
+            
+            // Reset sort state
+            lastSortedColumn = -1;
+            sortState = 0;
             
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Weights and Min Scores must be valid numbers.");
@@ -326,6 +430,79 @@ public class UI extends JFrame {
             JOptionPane.showMessageDialog(this, "Search error: " + e.getMessage());
         }
     }
+    
+    private void sortTableByColumn(int column) {
+        if (originalTableData == null || originalTableData.isEmpty()) {
+            return;
+        }
+        
+        // If clicking a different column, reset to descending
+        if (column != lastSortedColumn) {
+            lastSortedColumn = column;
+            sortState = 1; // Start with descending
+        } else {
+            // Cycle through states: 0 (unsorted) -> 1 (desc) -> 2 (asc) -> 0 (unsorted)
+            sortState = (sortState + 1) % 3;
+        }
+        
+        if (sortState == 0) {
+            // Restore original unsorted data
+            tableModel.setRowCount(0);
+            for (Object[] row : originalTableData) {
+                tableModel.addRow(row);
+            }
+        } else {
+            // Sort the data
+            List<Object[]> sortedData = new ArrayList<>(originalTableData);
+            final int sortColumn = column;
+            final boolean ascending = (sortState == 2);
+            
+            sortedData.sort((row1, row2) -> {
+                Object val1 = row1[sortColumn];
+                Object val2 = row2[sortColumn];
+                
+                int comparison = compareValues(val1, val2);
+                return ascending ? comparison : -comparison;
+            });
+            
+            // Update table with sorted data
+            tableModel.setRowCount(0);
+            for (Object[] row : sortedData) {
+                tableModel.addRow(row);
+            }
+        }
+    }
+    
+    private int compareValues(Object val1, Object val2) {
+        // Handle null values
+        if (val1 == null && val2 == null) {
+			return 0;
+		}
+        if (val1 == null) {
+			return -1;
+		}
+        if (val2 == null) {
+			return 1;
+		}
+        
+        String str1 = val1.toString();
+        String str2 = val2.toString();
+        
+        // Try to parse as numbers (for percentages and numeric values)
+        try {
+            // Remove % sign if present
+            String num1 = str1.replace("%", "").trim();
+            String num2 = str2.replace("%", "").trim();
+            
+            double d1 = Double.parseDouble(num1);
+            double d2 = Double.parseDouble(num2);
+            return Double.compare(d1, d2);
+        } catch (NumberFormatException e) {
+            // Fall back to string comparison
+            return str1.compareToIgnoreCase(str2);
+        }
+    }
+
     private File getNextFile(File file) {
         String parent = file.getParent();
         String name = file.getName();
@@ -537,9 +714,9 @@ public class UI extends JFrame {
     private static class CriteriaLine extends JPanel {
         private JTextField valueField;
         private JComboBox<Criteria.MatchingType> typeCombo;
-        private JTextField weightField;
-        private JTextField minSpellingField;
-        private JTextField minPhoneticField;
+        private JSpinner weightSpinner;
+        private JSpinner minSpellingField;
+        private JSpinner minPhoneticField;
         private JLabel minSpellingLabel;
         private JLabel minPhoneticLabel;
         private final Runnable onEnter;
@@ -567,22 +744,23 @@ public class UI extends JFrame {
             add(typeCombo);
 
             add(new JLabel("Weight:"));
-            weightField = new JTextField("1.0", 3);
-            weightField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; ");
-            weightField.addActionListener(e -> { weightField.selectAll(); onEnter.run(); });
-            add(weightField);
+            weightSpinner = new JSpinner(new SpinnerNumberModel(1, 0, 100, 1));
+            weightSpinner.putClientProperty(FlatClientProperties.STYLE, "arc: 8; ");
+            add(weightSpinner);
 
             minSpellingLabel = new JLabel("Min Spell:");
-            minSpellingField = new JTextField("0.8", 4);
+            minSpellingField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
             minSpellingField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; ");
-            minSpellingField.addActionListener(e -> { minSpellingField.selectAll(); onEnter.run(); });
+            minSpellingField.setPreferredSize(new Dimension(80, 30));
+            ((JSpinner.DefaultEditor)minSpellingField.getEditor()).getTextField().addActionListener(e -> onEnter.run());
             add(minSpellingLabel);
             add(minSpellingField);
 
             minPhoneticLabel = new JLabel("Min Phon:");
-            minPhoneticField = new JTextField("0.8", 4);
+            minPhoneticField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
             minPhoneticField.putClientProperty(FlatClientProperties.STYLE, "arc: 8; ");
-            minPhoneticField.addActionListener(e -> { minPhoneticField.selectAll(); onEnter.run(); });
+            minPhoneticField.setPreferredSize(new Dimension(80, 30));
+            ((JSpinner.DefaultEditor)minPhoneticField.getEditor()).getTextField().addActionListener(e -> onEnter.run());
             add(minPhoneticLabel);
             add(minPhoneticField);
 
@@ -612,9 +790,9 @@ public class UI extends JFrame {
 			}
 
             Criteria.MatchingType type = (Criteria.MatchingType) typeCombo.getSelectedItem();
-            double weight = Double.parseDouble(weightField.getText());
-            double minSpell = Double.parseDouble(minSpellingField.getText());
-            double minPhon = Double.parseDouble(minPhoneticField.getText());
+            int weight = (Integer) weightSpinner.getValue();
+            double minSpell = (Double) minSpellingField.getValue();
+            double minPhon = (Double) minPhoneticField.getValue();
 
             if (type == Criteria.MatchingType.SIMILARITY) {
                 return Criteria.similarity(val, weight, minSpell, minPhon);

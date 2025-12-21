@@ -14,13 +14,13 @@ public class Criteria {
     }
 
     public String value;
-    public double weight;
+    public int weight;
     public double minSpellingScore;
     public double minPhoneticScore;
     public MatchingType matchingType;
     public Pattern pattern;
 
-    public Criteria(String value, double weight, double minSpellingScore, double minPhoneticScore, MatchingType matchingType) {
+    public Criteria(String value, int weight, double minSpellingScore, double minPhoneticScore, MatchingType matchingType) {
         super();
         this.value = StringUtils.isBlank(value) ? null : value.trim().toUpperCase();
         this.weight = weight;
@@ -39,15 +39,15 @@ public class Criteria {
         }
     }
 
-    public static Criteria similarity(String value, double weight, double minSpelling, double minPhonetic) {
+    public static Criteria similarity(String value, int weight, double minSpelling, double minPhonetic) {
         return new Criteria(value, weight, minSpelling, minPhonetic, MatchingType.SIMILARITY);
     }
 
-    public static Criteria exact(String value, double weight) {
+    public static Criteria exact(String value, int weight) {
         return new Criteria(value, weight, -1, -1, MatchingType.EXACT);
     }
     
-    public static Criteria regex(String value, double weight) {
+    public static Criteria regex(String value, int weight) {
         return new Criteria(value, weight, -1, -1, MatchingType.REGEX);
     }
     
