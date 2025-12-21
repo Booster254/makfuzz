@@ -74,7 +74,9 @@ Built with robust, industry-standard libraries:
     ```
 
 3.  **Use It**:
-    - **Step 1**: Point it to a CSV/Text file with comma or semicolon separators.
+    - **Step 1**: Point it to a CSV file (using `,` or `;` separators).
+      > [!IMPORTANT]
+      > The file must include a **header line**. It should have at least **two columns**: the first column must be the **First Name** and the second (last) must be the **Last Name**.
     - **Step 2**: Enter search terms (FN/LN).
     - **Step 3**: Tweak your weights (e.g., Weight 1 for FN, Weight 3 for LN).
     - **Step 4**: Hit **Run Search** and watch the magic happen! ✨
