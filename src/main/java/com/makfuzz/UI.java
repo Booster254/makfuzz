@@ -75,6 +75,7 @@ public class UI extends JFrame {
     private JTextField topNField;
     private JButton executeBtn;
     private JLabel statusLabel;
+    private JLabel totalLabel;
     
     // Card Layout for Center Panel
     private CardLayout centerCardLayout;
@@ -173,10 +174,21 @@ public class UI extends JFrame {
         statusLabel.setVerticalAlignment(JLabel.TOP);
         statusBar.add(statusLabel, BorderLayout.WEST);
         
+        JPanel eastStatusPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        eastStatusPanel.setOpaque(false);
+        
+        totalLabel = new JLabel("Total Found: 0");
+        totalLabel.setForeground(Color.WHITE);
+        totalLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+        
         JLabel versionLabel = new JLabel("POC 2025-12");
         versionLabel.setForeground(new Color(255, 255, 255, 180));
         versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
-        statusBar.add(versionLabel, BorderLayout.EAST);
+        
+        eastStatusPanel.add(totalLabel);
+        eastStatusPanel.add(versionLabel);
+        
+        statusBar.add(eastStatusPanel, BorderLayout.EAST);
         
         add(statusBar, BorderLayout.SOUTH);
     }
@@ -456,13 +468,6 @@ public class UI extends JFrame {
             statusMsg.append("<td align='right'><b>P%</b></td>");
             statusMsg.append("</tr>");
 
-            // 1. Total Found
-            statusMsg.append("<tr>");
-            statusMsg.append("<td align='left'><b>Total:</b></td>");
-            statusMsg.append("<td align='right'>").append(searchResult.getTotalFound()).append("</td>");
-            statusMsg.append("<td colspan='6'></td>"); // Empty cells for alignment
-            statusMsg.append("</tr>");
-            
             // Helper to generate row for a candidate
             generateStatusRow(statusMsg, "Max Under GT:", searchResult.getMaxUnderCandidate(), searchResult.getMaxUnderThreshold());
             generateStatusRow(statusMsg, "Min Above GT:", searchResult.getMinAboveCandidate(), searchResult.getMinAboveThreshold());
@@ -470,6 +475,9 @@ public class UI extends JFrame {
             
             statusMsg.append("</table></html>");
             statusLabel.setText(statusMsg.toString());
+            
+            // Update separate Total Label
+            totalLabel.setText("Total Found: " + searchResult.getTotalFound());
             
             // Save original table data for sorting
             originalTableData = new ArrayList<>();
