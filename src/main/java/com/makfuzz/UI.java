@@ -324,6 +324,40 @@ public class UI extends JFrame {
         resultTable.getColumnModel().getColumn(0).setPreferredWidth(40); // Index column
         resultTable.getColumnModel().getColumn(1).setPreferredWidth(150); // FN column
         resultTable.getColumnModel().getColumn(4).setPreferredWidth(150); // LN column
+        
+        // Column Alignment
+        javax.swing.table.DefaultTableCellRenderer centerRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(javax.swing.JLabel.CENTER);
+        resultTable.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
+        
+        javax.swing.table.DefaultTableCellRenderer rightRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(javax.swing.JLabel.RIGHT);
+        resultTable.getColumnModel().getColumn(2).setCellRenderer(rightRenderer); // Spell FN
+        resultTable.getColumnModel().getColumn(3).setCellRenderer(rightRenderer); // Phon FN
+        resultTable.getColumnModel().getColumn(5).setCellRenderer(rightRenderer); // Spell LN
+        resultTable.getColumnModel().getColumn(6).setCellRenderer(rightRenderer); // Phon LN
+        resultTable.getColumnModel().getColumn(7).setCellRenderer(rightRenderer); // Total Score
+        
+        // Header Alignment
+        javax.swing.table.DefaultTableCellRenderer centerHeader = new javax.swing.table.DefaultTableCellRenderer();
+        centerHeader.setHorizontalAlignment(javax.swing.JLabel.CENTER);
+        centerHeader.setBackground(new Color(232, 234, 246));
+        centerHeader.setForeground(new Color(63, 81, 181));
+        centerHeader.setFont(new Font("SansSerif", Font.BOLD, 12));
+        centerHeader.setBorder(UIManager.getBorder("TableHeader.cellBorder"));
+        resultTable.getColumnModel().getColumn(0).setHeaderRenderer(centerHeader);
+
+        javax.swing.table.DefaultTableCellRenderer rightHeader = new javax.swing.table.DefaultTableCellRenderer();
+        rightHeader.setHorizontalAlignment(javax.swing.JLabel.RIGHT);
+        rightHeader.setBackground(new Color(232, 234, 246));
+        rightHeader.setForeground(new Color(63, 81, 181));
+        rightHeader.setFont(new Font("SansSerif", Font.BOLD, 12));
+        rightHeader.setBorder(UIManager.getBorder("TableHeader.cellBorder"));
+        resultTable.getColumnModel().getColumn(2).setHeaderRenderer(rightHeader);
+        resultTable.getColumnModel().getColumn(3).setHeaderRenderer(rightHeader);
+        resultTable.getColumnModel().getColumn(5).setHeaderRenderer(rightHeader);
+        resultTable.getColumnModel().getColumn(6).setHeaderRenderer(rightHeader);
+        resultTable.getColumnModel().getColumn(7).setHeaderRenderer(rightHeader);
 
         JScrollPane scrollPane = new JScrollPane(resultTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
