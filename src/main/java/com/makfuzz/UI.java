@@ -121,7 +121,7 @@ public class UI extends JFrame {
             UIManager.put("ScrollBar.track", new Color(0xf5f5f5));
         } catch (Exception ignored) {}
 
-        setTitle("MAKFUZZ - Fuzzy Search Pro ✨");
+        setTitle("MakFuzz - Fuzzy Search ✨");
         setSize(1400, 850);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -146,7 +146,7 @@ public class UI extends JFrame {
 
         // 0. App Title Section
         JPanel titleBox = new JPanel(new BorderLayout());
-        appTitle = new JLabel("FUZZY MATCHER");
+        appTitle = new JLabel("MakFuzz");
         appTitle.setFont(new Font("SansSerif", Font.BOLD, 22));
         appTitle.setForeground(new Color(63, 81, 181));
         titleBox.add(appTitle, BorderLayout.WEST);
@@ -248,25 +248,10 @@ public class UI extends JFrame {
             }
         });
         
-        langCombo = new JComboBox<>(new String[]{"EN", "FR"});
-        langCombo.putClientProperty(FlatClientProperties.STYLE, "arc: 8; background: #3f51b5; foreground: #ffffff; focusWidth: 0;");
-        langCombo.setFont(new Font("SansSerif", Font.BOLD, 9));
-        langCombo.addActionListener(e -> {
-            String selected = (String) langCombo.getSelectedItem();
-            if (selected.equals("EN")) {
-                currentLocale = Locale.ENGLISH;
-            } else {
-                currentLocale = Locale.FRENCH;
-            }
-            bundle = ResourceBundle.getBundle("messages", currentLocale);
-            updateTexts();
-        });
-
         versionLabel = new JLabel("v1.0 2025");
         versionLabel.setForeground(new Color(255, 255, 255, 180));
         versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
         
-        eastStatusPanel.add(langCombo);
         eastStatusPanel.add(githubLink);
         eastStatusPanel.add(versionLabel);
         
@@ -334,8 +319,8 @@ public class UI extends JFrame {
     }
 
     private void updateTexts() {
-        setTitle(bundle.getString("app.title"));
-        appTitle.setText(bundle.getString("app.header.title"));
+        setTitle("MakFuzz - Fuzzy Search ✨");
+        appTitle.setText("MakFuzz");
         appSubtitle.setText(bundle.getString("app.header.subtitle"));
         srcLabel.setText(bundle.getString("source.label"));
         browseBtn.setText(bundle.getString("source.button.browse"));
@@ -415,6 +400,27 @@ public class UI extends JFrame {
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         
+        JLabel searchLangLabel = new JLabel("Search Lang:");
+        bottomBar.add(searchLangLabel);
+        
+        langCombo = new JComboBox<>(new String[]{"EN", "FR"});
+        langCombo.putClientProperty(FlatClientProperties.STYLE, "arc: 8; background: #3f51b5; foreground: #ffffff; focusWidth: 0;");
+        langCombo.setPreferredSize(new Dimension(60, 30));
+        langCombo.addActionListener(e -> {
+            String selected = (String) langCombo.getSelectedItem();
+            if ("EN".equals(selected)) {
+                currentLocale = Locale.ENGLISH;
+            } else {
+                currentLocale = Locale.FRENCH;
+            }
+            bundle = ResourceBundle.getBundle("messages", currentLocale);
+            updateTexts();
+            performSearch();
+        });
+        bottomBar.add(langCombo);
+
+        bottomBar.add(Box.createHorizontalStrut(15));
+        
         thresholdLabel = new JLabel("Global Threshold:");
         bottomBar.add(thresholdLabel);
         globalThresholdField = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
@@ -453,6 +459,8 @@ public class UI extends JFrame {
         excelBtn.putClientProperty(FlatClientProperties.STYLE, "buttonType: toolBarButton");
         excelBtn.addActionListener(e -> exportToExcel());
         bottomBar.add(excelBtn);
+
+
 
         mainPanel.add(bottomBar);
 
@@ -617,12 +625,13 @@ public class UI extends JFrame {
             criteriaList.add(lnLine.getCriteria());
             double globalThreshold = (Double) globalThresholdField.getValue();
             int topN = Integer.parseInt(topNField.getText());
+            String lang = currentLocale.getLanguage();
 
             // Run search in background
             SwingWorker<SearchResult, Void> worker = new SwingWorker<>() {
                 @Override
                 protected SearchResult doInBackground() throws Exception {
-                    return Fuzz.bestMatch(database, criteriaList, globalThreshold, topN);
+                    return Fuzz.bestMatch(database, criteriaList, globalThreshold, topN, lang);
                 }
 
                 @Override

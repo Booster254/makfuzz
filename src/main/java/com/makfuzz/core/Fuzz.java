@@ -4,6 +4,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.commons.codec.language.bm.NameType;
+import org.apache.commons.codec.language.bm.PhoneticEngine;
+import org.apache.commons.codec.language.bm.RuleType;
 import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 
 public class Fuzz {
@@ -11,19 +14,29 @@ public class Fuzz {
 	static final String SEP = "[,;]";
 	private static final JaroWinklerSimilarity SPELLING_STRATEGY = new JaroWinklerSimilarity();
 	
-	// Custom French phonetic encoder
-	private static final FrenchSoundex PHONETIC_ENGINE = new FrenchSoundex();
+	// Engines
+	private static final FrenchSoundex FRENCH_ENGINE = new FrenchSoundex();
+	private static final PhoneticEngine DEFAULT_ENGINE = new PhoneticEngine(NameType.GENERIC, RuleType.APPROX, true);
 
 	// Cache to avoid recalculating expensive phonetic codes for repeating names
 	// This makes a HUGE difference in performance on large datasets
 	private static final java.util.Map<String, String> PHONETIC_CACHE = new java.util.concurrent.ConcurrentHashMap<>(2000);
+	private static String currentCacheLang = "";
 
 	public static SearchResult bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
-			int topN) {
+			int topN, String lang) {
 
 		if (criterias == null || criterias.isEmpty()) {
 			return new SearchResult(java.util.Collections.emptyList(), 0, 0, 0, null, null, null, 0);
 		}
+
+		// Clear cache if language changed
+		if (!currentCacheLang.equalsIgnoreCase(lang)) {
+			PHONETIC_CACHE.clear();
+			currentCacheLang = lang;
+		}
+
+		boolean isFrench = "fr".equalsIgnoreCase(lang);
 
 		int count = criterias.size();
 		List<Integer> activeIndexes = new java.util.ArrayList<>();
@@ -40,7 +53,7 @@ public class Fuzz {
 				totalWeight += cI.weight;
 				criteriaValues[i] = cI.value;
 				// PRE-OPTIMIZATION: Calculate search criteria phonetic code ONCE
-				criteriaPhoneticCodes[i] = PHONETIC_ENGINE.encode(cI.value);
+				criteriaPhoneticCodes[i] = isFrench ? FRENCH_ENGINE.encode(cI.value) : DEFAULT_ENGINE.encode(cI.value);
 			}
 		}
 
@@ -94,15 +107,22 @@ public class Fuzz {
 							// 1. Calculate Spelling (Jaro-Winkler)
 							spellingScore = SPELLING_STRATEGY.apply(cellValue, criteriaValues[i]);
 							
-							// 2. Calculate Fuzzy Phonetic Score (French Soundex)
+							// 2. Calculate Fuzzy Phonetic Score
 							// CACHING: Use the cache for cells, but pre-calculated codes for criteria
-							String code1 = PHONETIC_CACHE.computeIfAbsent(cellValue, PHONETIC_ENGINE::encode);
+							String code1 = PHONETIC_CACHE.computeIfAbsent(cellValue, k -> isFrench ? FRENCH_ENGINE.encode(k) : DEFAULT_ENGINE.encode(k));
 							String code2 = criteriaPhoneticCodes[i];
 							
 							if (code1.equals(code2)) {
 								phoneticScore = 1.0;
 							} else {
-								phoneticScore = SPELLING_STRATEGY.apply(code1, code2);
+								if (!isFrench) {
+									// Clean up Beider-Morse noise "(|)" for better fuzzy comparison
+									String clean1 = code1.replaceAll("[()|]", "");
+									String clean2 = code2.replaceAll("[()|]", "");
+									phoneticScore = SPELLING_STRATEGY.apply(clean1, clean2);
+								} else {
+									phoneticScore = SPELLING_STRATEGY.apply(code1, code2);
+								}
 							}
 
 							// Calculation based on user formula: average of spelling and phonetic
