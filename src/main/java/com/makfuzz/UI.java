@@ -174,6 +174,7 @@ public class UI extends JFrame {
         sourcePanel.add(srcLabel);
 
         sourcePathField = new JTextField("./names.csv", 60);
+        sourcePathField.setEditable(false);
         sourcePathField.putClientProperty(FlatClientProperties.STYLE, "showClearButton: true; arc: 8");
         
         browseBtn = new JButton("Browse");
@@ -383,7 +384,9 @@ public class UI extends JFrame {
     }
 
     private void loadData(String path) {
-        if (path == null || path.isEmpty()) return;
+        if (path == null || path.isEmpty()) {
+			return;
+		}
         
         List<Integer> selectedIndices = criteriaLines.stream()
                 .map(CriteriaLine::getColumnIndex)
@@ -413,9 +416,13 @@ public class UI extends JFrame {
             
             List<String[]> data = new ArrayList<>();
             for (int i = 0; i < lines.size(); i++) {
-                if (i == 0) continue; // Skip header
+                if (i == 0) {
+					continue; // Skip header
+				}
                 String lineText = lines.get(i);
-                if (lineText.trim().isEmpty()) continue;
+                if (lineText.trim().isEmpty()) {
+					continue;
+				}
                 
                 String[] parts = lineText.split("[,;]");
                 String[] selectedParts = new String[selectedIndices.size() + 1];
@@ -461,7 +468,9 @@ public class UI extends JFrame {
             
             try {
                 List<String> lines = FileUtils.readLines(selectedFile, StandardCharsets.UTF_8);
-                if (lines.isEmpty()) return;
+                if (lines.isEmpty()) {
+					return;
+				}
                 
                 String headerLine = lines.get(0);
                 String[] columns = headerLine.split("[,;]");
@@ -781,7 +790,7 @@ public class UI extends JFrame {
                 return;
             }
             
-            // UI Preparation
+            // UI Preparationc
             setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
             if (executeBtn != null) {
 				executeBtn.setEnabled(false);
@@ -999,12 +1008,16 @@ public class UI extends JFrame {
                 // S
                 double s = (sDetails != null && i < sDetails.length) ? sDetails[i] : -1;
                 addMetricValue(s >= 0 ? String.format("%.0f%%", s * 100) : "-", col++, row, gbc, false, sync && s >= 0,
-                    val -> { if (cl != null) cl.setMinSpelling(val); }, s);
+                    val -> { if (cl != null) {
+						cl.setMinSpelling(val);
+					} }, s);
 
                 // P
                 double p = (pDetails != null && i < pDetails.length) ? pDetails[i] : -1;
                 addMetricValue(p >= 0 ? String.format("%.0f%%", p * 100) : "-", col++, row, gbc, false, sync && p >= 0,
-                    val -> { if (cl != null) cl.setMinPhonetic(val); }, p);
+                    val -> { if (cl != null) {
+						cl.setMinPhonetic(val);
+					} }, p);
             }
         } else {
              for (int i = 0; i < numCriteria * 3; i++) {
@@ -1186,7 +1199,9 @@ public class UI extends JFrame {
             // Add original CSV headers
             for (int i = 0; i < originalHeaders.length; i++) {
                 out.write(escapeCSV(originalHeaders[i]));
-                if (i < originalHeaders.length - 1) out.write(",");
+                if (i < originalHeaders.length - 1) {
+					out.write(",");
+				}
             }
             out.write("\n");
 
@@ -1205,12 +1220,16 @@ public class UI extends JFrame {
                     String[] fields = parseCSVLine(fullLine);
                     for (int k = 0; k < fields.length; k++) {
                         out.write(escapeCSV(fields[k]));
-                        if (k < fields.length - 1) out.write(",");
+                        if (k < fields.length - 1) {
+							out.write(",");
+						}
                     }
                 } catch (Exception e) {
                     // Write empty fields if parsing fails
                     for (int k = 0; k < originalHeaders.length; k++) {
-                        if (k > 0) out.write(",");
+                        if (k > 0) {
+							out.write(",");
+						}
                     }
                 }
                 out.write("\n");
@@ -1226,7 +1245,9 @@ public class UI extends JFrame {
 
     private String[] fetchOriginalHeaders() {
         File file = new File(sourcePathField.getText());
-        if (!file.exists()) return new String[0];
+        if (!file.exists()) {
+			return new String[0];
+		}
         
         try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
             String headerLine = br.readLine();
@@ -1240,7 +1261,9 @@ public class UI extends JFrame {
     }
     
     private String[] parseCSVLine(String line) {
-        if (line == null || line.trim().isEmpty()) return new String[0];
+        if (line == null || line.trim().isEmpty()) {
+			return new String[0];
+		}
         // Simple CSV parser - splits on comma or semicolon
         String[] parts = line.split("[,;]");
         for (int i = 0; i < parts.length; i++) {
@@ -1254,7 +1277,9 @@ public class UI extends JFrame {
     }
     
     private String escapeCSV(String value) {
-        if (value == null) return "";
+        if (value == null) {
+			return "";
+		}
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
@@ -1277,10 +1302,14 @@ public class UI extends JFrame {
             }
         }
         
-        if (neededIndices.isEmpty()) return lineMap;
+        if (neededIndices.isEmpty()) {
+			return lineMap;
+		}
         
         File file = new File(sourcePathField.getText());
-        if (!file.exists()) return lineMap;
+        if (!file.exists()) {
+			return lineMap;
+		}
         
         // Read file in single pass
         try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
@@ -1295,7 +1324,9 @@ public class UI extends JFrame {
                 if (neededIndices.contains(currentLine)) {
                     lineMap.put(currentLine, line);
                     foundCount++;
-                    if (foundCount >= totalNeeded) break; 
+                    if (foundCount >= totalNeeded) {
+						break;
+					} 
                 }
                 currentLine++;
             }

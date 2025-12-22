@@ -86,6 +86,9 @@ Built with robust, industry-standard libraries:
       > [!IMPORTANT]
       > The file must include a **header line** with column names.
     - **Step 2**: Select which columns you want to use as search criteria from a dialog.
+      
+      ![Column Selection Dialog](assets/file_select.png)
+      
     - **Step 3**: Enter search terms for each criterion.
     - **Step 4**: Adjust weights and thresholds for each criterion to fine-tune your matches.
     - **Step 5**: Hit **Run Search** and watch the magic happen! ✨
