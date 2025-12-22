@@ -7,7 +7,9 @@ import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -78,6 +80,7 @@ public class UI extends JFrame {
     private JTextField topNField;
     private JButton executeBtn;
     private JLabel statusLabel;
+    private JPanel metricsPanel;
     private JLabel totalLabel;
     
     // I18N Fields
@@ -213,6 +216,11 @@ public class UI extends JFrame {
         westStatusPanel.setLayout(new BoxLayout(westStatusPanel, BoxLayout.X_AXIS));
         westStatusPanel.setOpaque(false);
         westStatusPanel.add(statusLabel);
+        
+        metricsPanel = new JPanel(new GridBagLayout());
+        metricsPanel.setOpaque(false);
+        westStatusPanel.add(metricsPanel);
+
         westStatusPanel.add(Box.createHorizontalStrut(50));
         westStatusPanel.add(totalLabel);
         
@@ -353,6 +361,9 @@ public class UI extends JFrame {
         
         if (statusLabel != null && !statusLabel.getText().contains("Searching")) {
             statusLabel.setText(bundle.getString("status.ready"));
+            metricsPanel.removeAll();
+            metricsPanel.revalidate();
+            metricsPanel.repaint();
         }
     }
 
@@ -374,6 +385,9 @@ public class UI extends JFrame {
             
             if (statusLabel != null) {
                 statusLabel.setText(MessageFormat.format(bundle.getString("status.total"), database.size()));
+                metricsPanel.removeAll();
+                metricsPanel.revalidate();
+                metricsPanel.repaint();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -613,6 +627,9 @@ public class UI extends JFrame {
 			}
             if (statusLabel != null) {
 				statusLabel.setText(bundle.getString("status.loading"));
+                metricsPanel.removeAll();
+                metricsPanel.revalidate();
+                metricsPanel.repaint();
 			}
             
             // Switch to loading view
@@ -643,6 +660,9 @@ public class UI extends JFrame {
                         e.printStackTrace();
                         JOptionPane.showMessageDialog(UI.this, MessageFormat.format(bundle.getString("dialog.error.search_error"), e.getMessage()));
                         statusLabel.setText("<html>Error occurred.</html>");
+                        metricsPanel.removeAll();
+                        metricsPanel.revalidate();
+                        metricsPanel.repaint();
                     } finally {
                         // UI Cleanup
                         setCursor(java.awt.Cursor.getDefaultCursor());
@@ -703,28 +723,9 @@ public class UI extends JFrame {
             
             
             
-            // Build status message with candidate details using an aligned HTML table
-            StringBuilder statusMsg = new StringBuilder("<html><table border='0' cellspacing='0' cellpadding='0'>");
-            
-            // Header Row
-            statusMsg.append("<tr>");
-            statusMsg.append("<td align='left'><b>").append(bundle.getString("search.metrics.label")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='right'><b>").append(bundle.getString("search.metrics.total")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='left'><b>").append(bundle.getString("search.metrics.fn")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='right'><b>").append(bundle.getString("search.metrics.s")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='right'><b>").append(bundle.getString("search.metrics.p")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='left'><b>").append(bundle.getString("search.metrics.ln")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='right'><b>").append(bundle.getString("search.metrics.s")).append("</b></td><td width='20'></td>");
-            statusMsg.append("<td align='right'><b>").append(bundle.getString("search.metrics.p")).append("</b></td>");
-            statusMsg.append("</tr>");
-
-            // Helper to generate row for a candidate
-            generateStatusRow(statusMsg, bundle.getString("search.metrics.max_under"), searchResult.getMaxUnderCandidate(), searchResult.getMaxUnderThreshold());
-            generateStatusRow(statusMsg, bundle.getString("search.metrics.min_above"), searchResult.getMinAboveCandidate(), searchResult.getMinAboveThreshold());
-            generateStatusRow(statusMsg, bundle.getString("search.metrics.max_above"), searchResult.getMaxAboveCandidate(), searchResult.getMaxAboveThreshold());
-            
-            statusMsg.append("</table></html>");
-            statusLabel.setText(statusMsg.toString());
+            // Detailed metrics in footer
+            statusLabel.setText("");
+            populateMetricsPanel(searchResult, criteriaList);
             
             // Update separate Total Label
             totalLabel.setText(MessageFormat.format(bundle.getString("status.total"), searchResult.getTotalFound()));
@@ -751,42 +752,118 @@ public class UI extends JFrame {
         }
     }
     
-    private void generateStatusRow(StringBuilder sb, String label, SimResult result, double threshold) {
-        sb.append("<tr>");
-        sb.append("<td align='left'><b>").append(label).append("</b></td><td width='20'></td>");
+    private void populateMetricsPanel(SearchResult searchResult, List<Criteria> criteriaList) {
+        metricsPanel.removeAll();
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(0, 0, 0, 15);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Header Row
+        int col = 0;
+        addMetricHeader(bundle.getString("search.metrics.label"), col++, 0, gbc, true);
+        addMetricHeader(bundle.getString("search.metrics.total"), col++, 0, gbc, false);
+        addMetricHeader(bundle.getString("search.metrics.fn"), col++, 0, gbc, true);
+        addMetricHeader(bundle.getString("search.metrics.s"), col++, 0, gbc, false);
+        addMetricHeader(bundle.getString("search.metrics.p"), col++, 0, gbc, false);
+        addMetricHeader(bundle.getString("search.metrics.ln"), col++, 0, gbc, true);
+        addMetricHeader(bundle.getString("search.metrics.s"), col++, 0, gbc, false);
+        addMetricHeader(bundle.getString("search.metrics.p"), col++, 0, gbc, false);
+
+        // Data Rows
+        addRowToMetrics(bundle.getString("search.metrics.max_under"), searchResult.getMaxUnderCandidate(), searchResult.getMaxUnderThreshold(), 1, gbc);
+        addRowToMetrics(bundle.getString("search.metrics.min_above"), searchResult.getMinAboveCandidate(), searchResult.getMinAboveThreshold(), 2, gbc);
+        addRowToMetrics(bundle.getString("search.metrics.max_above"), searchResult.getMaxAboveCandidate(), searchResult.getMaxAboveThreshold(), 3, gbc);
+
+        metricsPanel.revalidate();
+        metricsPanel.repaint();
+    }
+
+    private void addMetricHeader(String text, int x, int y, GridBagConstraints gbc, boolean left) {
+        JLabel lbl = new JLabel("<html><b>" + text + "</b></html>");
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        lbl.setHorizontalAlignment(left ? JLabel.LEFT : JLabel.RIGHT);
+        gbc.gridx = x;
+        gbc.gridy = y;
+        metricsPanel.add(lbl, gbc);
+    }
+
+    private void addRowToMetrics(String label, SimResult result, double threshold, int row, GridBagConstraints gbc) {
+        int col = 0;
+        addMetricValue(label, col++, row, gbc, true, false, null, 0);
         
+        // Threshold/Total column
+        addMetricValue(String.format("%.2f%%", threshold * 100), col++, row, gbc, false, true, 
+            val -> globalThresholdField.setValue(val), threshold);
+
         if (result != null) {
-            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td><td width='20'></td>");
-            
             String[] cand = result.getCandidate();
             double[] sDetails = result.getSpellingScoreDetails();
             double[] pDetails = result.getPhoneticScoreDetails();
+
+            // FN
+            addMetricValue(cand.length > 0 ? cand[0] : "-", col++, row, gbc, true, false, null, 0);
             
-            // First Name
-            if (cand.length > 0) {
-                sb.append("<td align='left'>").append(cand[0]).append("</td><td width='20'></td>");
-                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 0 ? String.format("%.0f%%", sDetails[0]*100) : "-").append("</td><td width='20'></td>");
-                sb.append("<td align='right'>").append(pDetails != null && pDetails.length > 0 ? String.format("%.0f%%", pDetails[0]*100) : "-").append("</td><td width='20'></td>");
-            } else {
-                sb.append("<td>-</td><td></td><td>-</td><td></td><td>-</td><td></td>");
-            }
-            
-            // Last Name
-            if (cand.length > 1) {
-                sb.append("<td align='left'>").append(cand[1]).append("</td><td width='20'></td>");
-                sb.append("<td align='right'>").append(sDetails != null && sDetails.length > 1 ? String.format("%.0f%%", sDetails[1]*100) : "-").append("</td><td width='20'></td>");
-                sb.append("<td align='right'>").append(pDetails != null && pDetails.length > 1 ? String.format("%.0f%%", pDetails[1]*100) : "-").append("</td>");
-            } else {
-               sb.append("<td>-</td><td></td><td>-</td><td></td><td>-</td>");
-            }
+            // FN S
+            double s0 = (sDetails != null && sDetails.length > 0) ? sDetails[0] : -1;
+            addMetricValue(s0 >= 0 ? String.format("%.0f%%", s0 * 100) : "-", col++, row, gbc, false, s0 >= 0,
+                val -> fnLine.setMinSpelling(val), s0);
+
+            // FN P
+            double p0 = (pDetails != null && pDetails.length > 0) ? pDetails[0] : -1;
+            addMetricValue(p0 >= 0 ? String.format("%.0f%%", p0 * 100) : "-", col++, row, gbc, false, p0 >= 0,
+                val -> fnLine.setMinPhonetic(val), p0);
+
+            // LN
+            addMetricValue(cand.length > 1 ? cand[1] : "-", col++, row, gbc, true, false, null, 0);
+
+            // LN S
+            double s1 = (sDetails != null && sDetails.length > 1) ? sDetails[1] : -1;
+            addMetricValue(s1 >= 0 ? String.format("%.0f%%", s1 * 100) : "-", col++, row, gbc, false, s1 >= 0,
+                val -> lnLine.setMinSpelling(val), s1);
+
+            // LN P
+            double p1 = (pDetails != null && pDetails.length > 1) ? pDetails[1] : -1;
+            addMetricValue(p1 >= 0 ? String.format("%.0f%%", p1 * 100) : "-", col++, row, gbc, false, p1 >= 0,
+                val -> lnLine.setMinPhonetic(val), p1);
+
         } else {
-            // No result for this category - spans + spacers needed? Or just fill
-            sb.append("<td align='right'>").append(String.format("%.2f%%", threshold * 100)).append("</td>"); 
-             // Fill remaining columns: 5 data cols + 5 spacers?
-             // Actually simplest to just colspan the rest
-            sb.append("<td colspan='11' align='center'>-</td>");
+             for (int i=0; i<6; i++) {
+                 addMetricValue("-", col++, row, gbc, leftCols[i], false, null, 0);
+             }
         }
-        sb.append("</tr>");
+    }
+    
+    private static final boolean[] leftCols = {true, false, false, true, false, false};
+
+    private void addMetricValue(String text, int x, int y, GridBagConstraints gbc, boolean left, boolean clickable, java.util.function.Consumer<Double> onUpdate, double value) {
+        JLabel lbl = new JLabel(text);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        lbl.setHorizontalAlignment(left ? JLabel.LEFT : JLabel.RIGHT);
+        if (clickable) {
+            lbl.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+            lbl.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent e) {
+                    // Round down to 2 decimal places: 0.523 -> 0.52
+                    double rounded = Math.floor(value * 100) / 100.0;
+                    onUpdate.accept(rounded);
+                    performSearch();
+                }
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent e) {
+                    lbl.setText("<html><u>" + text + "</u></html>");
+                }
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent e) {
+                    lbl.setText(text);
+                }
+            });
+        }
+        gbc.gridx = x;
+        gbc.gridy = y;
+        metricsPanel.add(lbl, gbc);
     }
     
     private void sortTableByColumn(int column) {
@@ -1203,6 +1280,14 @@ public class UI extends JFrame {
             weightLabel.setText(bundle.getString("search.criteria.weight"));
             minSpellingLabel.setText(bundle.getString("search.criteria.min_spell"));
             minPhoneticLabel.setText(bundle.getString("search.criteria.min_phon"));
+        }
+
+        public void setMinSpelling(double val) {
+            minSpellingField.setValue(val);
+        }
+
+        public void setMinPhonetic(double val) {
+            minPhoneticField.setValue(val);
         }
     }
     
