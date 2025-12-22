@@ -1175,14 +1175,43 @@ public class UI extends JFrame {
 
     private void saveCSV(File file) {
         try (FileWriter out = new FileWriter(file)) {
+            // Fetch original lines and headers
+            java.util.Map<Integer, String> originalLines = fetchOriginalLines();
+            String[] originalHeaders = fetchOriginalHeaders();
+            
+            // Write Headers
             for (int i = 0; i < tableModel.getColumnCount(); i++) {
-                out.write(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "" : ","));
+                out.write(escapeCSV(tableModel.getColumnName(i)) + ",");
+            }
+            // Add original CSV headers
+            for (int i = 0; i < originalHeaders.length; i++) {
+                out.write(escapeCSV(originalHeaders[i]));
+                if (i < originalHeaders.length - 1) out.write(",");
             }
             out.write("\n");
+
+            // Write Data
             for (int i = 0; i < tableModel.getRowCount(); i++) {
                 for (int j = 0; j < tableModel.getColumnCount(); j++) {
                     Object val = tableModel.getValueAt(i, j);
-                    out.write((val == null ? "" : val.toString()) + (j == tableModel.getColumnCount() - 1 ? "" : ","));
+                    String v = (val == null ? "" : val.toString());
+                    out.write(escapeCSV(v) + ",");
+                }
+                
+                // Append original row fields as individual columns
+                try {
+                    int fileRowIdx = Integer.parseInt(tableModel.getValueAt(i, 1).toString());
+                    String fullLine = originalLines.getOrDefault(fileRowIdx, "");
+                    String[] fields = parseCSVLine(fullLine);
+                    for (int k = 0; k < fields.length; k++) {
+                        out.write(escapeCSV(fields[k]));
+                        if (k < fields.length - 1) out.write(",");
+                    }
+                } catch (Exception e) {
+                    // Write empty fields if parsing fails
+                    for (int k = 0; k < originalHeaders.length; k++) {
+                        if (k > 0) out.write(",");
+                    }
                 }
                 out.write("\n");
             }
@@ -1193,6 +1222,87 @@ public class UI extends JFrame {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, MessageFormat.format(bundle.getString("dialog.export.failed"), e.getMessage()));
         }
+    }
+
+    private String[] fetchOriginalHeaders() {
+        File file = new File(sourcePathField.getText());
+        if (!file.exists()) return new String[0];
+        
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+            String headerLine = br.readLine();
+            if (headerLine != null) {
+                return parseCSVLine(headerLine);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new String[0];
+    }
+    
+    private String[] parseCSVLine(String line) {
+        if (line == null || line.trim().isEmpty()) return new String[0];
+        // Simple CSV parser - splits on comma or semicolon
+        String[] parts = line.split("[,;]");
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = parts[i].trim();
+            // Remove quotes if present
+            if (parts[i].startsWith("\"") && parts[i].endsWith("\"")) {
+                parts[i] = parts[i].substring(1, parts[i].length() - 1).replace("\"\"", "\"");
+            }
+        }
+        return parts;
+    }
+    
+    private String escapeCSV(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    private java.util.Map<Integer, String> fetchOriginalLines() { 
+        java.util.Map<Integer, String> lineMap = new java.util.HashMap<>();
+        java.util.Set<Integer> neededIndices = new java.util.HashSet<>();
+        
+        // Collect indices from table (Column 1 is File Row Index)
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            try {
+                Object val = tableModel.getValueAt(i, 1);
+                if (val != null) {
+                    neededIndices.add(Integer.parseInt(val.toString()));
+                }
+            } catch (NumberFormatException e) {
+                // Ignore non-numeric indices
+            }
+        }
+        
+        if (neededIndices.isEmpty()) return lineMap;
+        
+        File file = new File(sourcePathField.getText());
+        if (!file.exists()) return lineMap;
+        
+        // Read file in single pass
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+            String line;
+            int currentLine = 1; // 1-based index
+            // Optimize: stop when we found all needed lines if max index is reached?
+            // Since file might not be sorted by index if shuffled, we can't stop early unless we track found count.
+            int foundCount = 0;
+            int totalNeeded = neededIndices.size();
+            
+            while ((line = br.readLine()) != null) {
+                if (neededIndices.contains(currentLine)) {
+                    lineMap.put(currentLine, line);
+                    foundCount++;
+                    if (foundCount >= totalNeeded) break; 
+                }
+                currentLine++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return lineMap;
     }
 
     private void exportToExcel() {
@@ -1231,98 +1341,123 @@ public class UI extends JFrame {
         try (Workbook workbook = new XSSFWorkbook();
              FileOutputStream fileOut = new FileOutputStream(selectedFile)) {
                 
+                // Fetch original lines and headers
+                java.util.Map<Integer, String> originalLines = fetchOriginalLines();
+                String[] originalHeaders = fetchOriginalHeaders();
+
                 Sheet sheet = workbook.createSheet("Search Results");
                 
-                // Styling
-                org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
-                headerFont.setBold(true);
-                headerFont.setColor(IndexedColors.WHITE.getIndex());
+                // Styling for synthesis columns (blue)
+                org.apache.poi.ss.usermodel.Font synthesisFont = workbook.createFont();
+                synthesisFont.setBold(true);
+                synthesisFont.setColor(IndexedColors.WHITE.getIndex());
                 
-                CellStyle headerStyle = workbook.createCellStyle();
-                headerStyle.setFont(headerFont);
-                headerStyle.setFillForegroundColor(IndexedColors.CORNFLOWER_BLUE.getIndex());
-                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                headerStyle.setAlignment(HorizontalAlignment.CENTER);
-                headerStyle.setBorderTop(BorderStyle.THIN);
-                headerStyle.setBorderBottom(BorderStyle.THIN);
-                headerStyle.setBorderLeft(BorderStyle.THIN);
-                headerStyle.setBorderRight(BorderStyle.THIN);
-
-                CellStyle defaultStyle = workbook.createCellStyle();
-                defaultStyle.setBorderTop(BorderStyle.THIN);
-                defaultStyle.setBorderBottom(BorderStyle.THIN);
-                defaultStyle.setBorderLeft(BorderStyle.THIN);
-                defaultStyle.setBorderRight(BorderStyle.THIN);
-
-                CellStyle percentStyle = workbook.createCellStyle();
-                percentStyle.setDataFormat(workbook.createDataFormat().getFormat("0%"));
-                percentStyle.setAlignment(HorizontalAlignment.RIGHT);
-                percentStyle.setBorderTop(BorderStyle.THIN);
-                percentStyle.setBorderBottom(BorderStyle.THIN);
-                percentStyle.setBorderLeft(BorderStyle.THIN);
-                percentStyle.setBorderRight(BorderStyle.THIN);
-
-                CellStyle percentDecimalStyle = workbook.createCellStyle();
-                percentDecimalStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
-                percentDecimalStyle.setAlignment(HorizontalAlignment.RIGHT);
-                percentDecimalStyle.setBorderTop(BorderStyle.THIN);
-                percentDecimalStyle.setBorderBottom(BorderStyle.THIN);
-                percentDecimalStyle.setBorderLeft(BorderStyle.THIN);
-                percentDecimalStyle.setBorderRight(BorderStyle.THIN);
+                CellStyle synthesisHeaderStyle = workbook.createCellStyle();
+                synthesisHeaderStyle.setFont(synthesisFont);
+                synthesisHeaderStyle.setFillForegroundColor(IndexedColors.CORNFLOWER_BLUE.getIndex());
+                synthesisHeaderStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                synthesisHeaderStyle.setAlignment(HorizontalAlignment.CENTER);
+                synthesisHeaderStyle.setBorderTop(BorderStyle.THIN);
+                synthesisHeaderStyle.setBorderBottom(BorderStyle.THIN);
+                synthesisHeaderStyle.setBorderLeft(BorderStyle.THIN);
+                synthesisHeaderStyle.setBorderRight(BorderStyle.THIN);
                 
-                // Create Header Row
+                // Styling for original columns (green)
+                org.apache.poi.ss.usermodel.Font originalFont = workbook.createFont();
+                originalFont.setBold(true);
+                originalFont.setColor(IndexedColors.WHITE.getIndex());
+                
+                CellStyle originalHeaderStyle = workbook.createCellStyle();
+                originalHeaderStyle.setFont(originalFont);
+                originalHeaderStyle.setFillForegroundColor(IndexedColors.SEA_GREEN.getIndex());
+                originalHeaderStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                originalHeaderStyle.setAlignment(HorizontalAlignment.CENTER);
+                originalHeaderStyle.setBorderTop(BorderStyle.THIN);
+                originalHeaderStyle.setBorderBottom(BorderStyle.THIN);
+                originalHeaderStyle.setBorderLeft(BorderStyle.THIN);
+                originalHeaderStyle.setBorderRight(BorderStyle.THIN);
+                
+                // Write Header
                 Row headerRow = sheet.createRow(0);
+                int colIdx = 0;
+                
+                // Synthesis columns (blue headers)
                 for (int i = 0; i < tableModel.getColumnCount(); i++) {
-                    Cell cell = headerRow.createCell(i);
+                    Cell cell = headerRow.createCell(colIdx++);
                     cell.setCellValue(tableModel.getColumnName(i));
-                    cell.setCellStyle(headerStyle);
+                    cell.setCellStyle(synthesisHeaderStyle);
                 }
-
-                // Create Data Rows
+                
+                // Original CSV headers (green headers)
+                for (String header : originalHeaders) {
+                    Cell cell = headerRow.createCell(colIdx++);
+                    cell.setCellValue(header);
+                    cell.setCellStyle(originalHeaderStyle);
+                }
+                
+                // Write Data
                 for (int i = 0; i < tableModel.getRowCount(); i++) {
                     Row row = sheet.createRow(i + 1);
+                    colIdx = 0;
                     for (int j = 0; j < tableModel.getColumnCount(); j++) {
-                        Cell cell = row.createCell(j);
+                        Cell cell = row.createCell(colIdx++);
                         Object val = tableModel.getValueAt(i, j);
-                        String strVal = (val == null) ? "" : val.toString();
-
-                        if (strVal.endsWith("%")) {
-                            try {
-                                // Parse e.g. "91%" -> 91.0 or "77.48%" -> 77.48
-                                double numericVal = Double.parseDouble(strVal.replace("%", ""));
-                                cell.setCellValue(numericVal / 100.0);
-                                if (strVal.contains(".")) {
-                                    cell.setCellStyle(percentDecimalStyle);
-                                } else {
-                                    cell.setCellStyle(percentStyle);
-                                }
-                            } catch (NumberFormatException e) {
-                                cell.setCellValue(strVal);
-                            }
-                        } else if (val instanceof Number) {
+                        if (val instanceof Number) {
                             cell.setCellValue(((Number) val).doubleValue());
-                            cell.setCellStyle(defaultStyle);
                         } else {
-                            cell.setCellValue(strVal);
-                            cell.setCellStyle(defaultStyle);
+                            cell.setCellValue(val == null ? "" : val.toString());
+                        }
+                    }
+                    
+                    // Append original row fields as individual columns
+                    try {
+                        int fileRowIdx = Integer.parseInt(tableModel.getValueAt(i, 1).toString());
+                        String fullLine = originalLines.getOrDefault(fileRowIdx, "");
+                        String[] fields = parseCSVLine(fullLine);
+                        for (String field : fields) {
+                            row.createCell(colIdx++).setCellValue(field);
+                        }
+                    } catch (Exception e) {
+                        // Write empty cells if parsing fails
+                        for (int k = 0; k < originalHeaders.length; k++) {
+                            row.createCell(colIdx++);
                         }
                     }
                 }
-
-                // Auto-size columns
-                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                
+                // Auto-size all columns to fit content
+                int totalColumns = tableModel.getColumnCount() + originalHeaders.length;
+                for (int i = 0; i < totalColumns; i++) {
                     sheet.autoSizeColumn(i);
                 }
-
+                
+                // Enable AutoFilter for all columns
+                if (tableModel.getRowCount() > 0) {
+                    sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(
+                        0, // First row (header)
+                        tableModel.getRowCount(), // Last row
+                        0, // First column
+                        totalColumns - 1 // Last column
+                    ));
+                }
+                
+                // Freeze panes: Keep synthesis columns visible when scrolling horizontally
+                // Freeze after all synthesis columns (before original CSV columns start)
+                int freezeAfterColumn = tableModel.getColumnCount();
+                sheet.createFreezePane(freezeAfterColumn, 1); // Freeze columns and first row (header)
+                
                 workbook.write(fileOut);
+                
                 if (Desktop.isDesktopSupported()) {
                     Desktop.getDesktop().open(selectedFile);
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(this, MessageFormat.format(bundle.getString("dialog.export.failed"), e.getMessage()));
-            }
+                
+        } catch (IOException e) {
+             e.printStackTrace();
+             JOptionPane.showMessageDialog(this, MessageFormat.format(bundle.getString("dialog.export.failed"), e.getMessage()));
+        }
     }
+
 
     private static class CriteriaLine extends JPanel {
         private String columnName = "";
