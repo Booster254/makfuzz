@@ -52,7 +52,7 @@ It goes beyond simple string matching by combining **Spelling Similarity** (how 
   - Auto-sized columns for perfect readability
   - Full original row data appended as individual columns
 
-![Excel Export Screenshot](assets/excel_export.png)
+![Excel Export Screenshot](assets/excel-export.png)
 
 ---
 
