@@ -2,7 +2,7 @@
 > **The Ultimate Fuzzy Matching Engine for Data Cleaning & Deduplication** ✨
 
 ![Java](https://img.shields.io/badge/Java-17+-orange?style=for-the-badge&logo=openjdk)
-![Swing](https://img.shields.io/badge/UI-Swing_FlatLaf-blue?style=for-the-badge)
+![Swing](https://img.shields.io/badge/UI-Swing-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production_Ready-green?style=for-the-badge)
 
 ![MakFuzz Screenshot](assets/screenshot.png)
