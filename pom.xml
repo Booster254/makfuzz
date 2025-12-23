@@ -92,10 +92,10 @@
 			<version>5.3.0</version>
 		</dependency>
 
-	<dependency>
-			<groupId>com.formdev</groupId>
-			<artifactId>flatlaf</artifactId>
-			<version>3.5.2</version>
+		<dependency>
+			<groupId>org.pushing-pixels</groupId>
+			<artifactId>radiance-theming</artifactId>
+			<version>7.0.0</version>
 		</dependency>
 
 		<dependency>
