@@ -36,6 +36,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JFormattedTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -107,6 +108,7 @@ public class UI extends JFrame {
     
     private boolean searchPending = false;
     private boolean isInitializing = false;
+    private boolean isCommitting = false;
     
     // Card Layout for Center Panel
     private CardLayout centerCardLayout;
@@ -212,26 +214,27 @@ public class UI extends JFrame {
         
         statusLabel = new JLabel("<html>Engine ready...</html>");
         statusLabel.setForeground(Color.WHITE);
-        statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
-        statusLabel.setVerticalAlignment(JLabel.TOP);
+        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+        statusLabel.setVerticalAlignment(JLabel.CENTER);
+        RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(statusLabel, 1.0);
         
-        totalLabel = new JLabel("Total Found: 0");
+        totalLabel = new JLabel("");
         totalLabel.setForeground(Color.WHITE);
-        totalLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
-        totalLabel.setVerticalAlignment(JLabel.TOP);
+        totalLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+        totalLabel.setVerticalAlignment(JLabel.CENTER);
+        RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(totalLabel, 1.0);
         
-        // Container for Status Table and Total Label (West)
+        // Container for Status/Metrics/Total (West)
         JPanel westStatusPanel = new JPanel();
-        westStatusPanel.setLayout(new BoxLayout(westStatusPanel, BoxLayout.X_AXIS));
+        westStatusPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 15, 0));
         westStatusPanel.setOpaque(false);
         westStatusPanel.add(statusLabel);
         
         metricsPanel = new JPanel(new GridBagLayout());
         metricsPanel.setOpaque(false);
         westStatusPanel.add(metricsPanel);
-
-        westStatusPanel.add(Box.createHorizontalStrut(50));
-        westStatusPanel.add(totalLabel);
+        
+        westStatusPanel.add(totalLabel); // Moved to the right of the metrics
         
         statusBar.add(westStatusPanel, BorderLayout.WEST);
         
@@ -266,8 +269,9 @@ public class UI extends JFrame {
         });
         
         versionLabel = new JLabel("v1.0 2025");
-        versionLabel.setForeground(new Color(255, 255, 255, 180));
+        versionLabel.setForeground(Color.WHITE);
         versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 9));
+        RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(versionLabel, 1.0);
         
         eastStatusPanel.add(githubLink);
         eastStatusPanel.add(versionLabel);
@@ -289,6 +293,7 @@ public class UI extends JFrame {
     }
     
     private void saveSettings() {
+        commitSpinners();
         ConfigManager.AppConfig config = new ConfigManager.AppConfig();
         config.sourcePath = sourcePathField.getText();
         config.globalThreshold = (Double) globalThresholdField.getValue();
@@ -296,12 +301,28 @@ public class UI extends JFrame {
         config.language = currentLocale.getLanguage();
         
         config.criteriaList = new ArrayList<>();
-        for (CriteriaLine line : criteriaLines) {
-            config.criteriaList.add(line.getConfig());
+        for (CriteriaLine cl : criteriaLines) {
+            config.criteriaList.add(cl.getConfig());
         }
         
         File configFile = new File(System.getProperty("user.home"), ".makfuzz_config.xml");
         ConfigManager.saveConfig(config, configFile);
+    }
+
+    private void commitSpinners() {
+        isCommitting = true;
+        try {
+            if (globalThresholdField != null) {
+				globalThresholdField.commitEdit();
+			}
+            for (CriteriaLine cl : criteriaLines) {
+                cl.commitSpinners();
+            }
+        } catch (Exception e) {
+            // Ignore parse errors, will revert to valid value
+        } finally {
+            isCommitting = false;
+        }
     }
 
     private void loadSettings() {
@@ -359,6 +380,8 @@ public class UI extends JFrame {
     }
 
     private void updateTexts() {
+        setLocale(currentLocale);
+        Locale.setDefault(currentLocale);
         setTitle("MakFuzz - Fuzzy Search ✨");
         appTitle.setText("MakFuzz");
         appSubtitle.setText(bundle.getString("app.header.subtitle"));
@@ -601,7 +624,13 @@ public class UI extends JFrame {
         bottomBar.add(thresholdLabel);
         globalThresholdField = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
         globalThresholdField.setPreferredSize(new Dimension(100, 32));
-        ((JSpinner.DefaultEditor)globalThresholdField.getEditor()).getTextField().addActionListener(e -> performSearch());
+        
+        JFormattedTextField tfThresh = ((JSpinner.DefaultEditor)globalThresholdField.getEditor()).getTextField();
+        tfThresh.addActionListener(e -> { 
+            tfThresh.selectAll(); 
+            performSearch(); 
+        });
+        
         globalThresholdField.addChangeListener(e -> performSearch());
         bottomBar.add(globalThresholdField);
 
@@ -791,7 +820,7 @@ public class UI extends JFrame {
 
     
     private void performSearch() {
-        if (isInitializing) {
+        if (isInitializing || isCommitting) {
 			return;
 		}
 
@@ -803,6 +832,8 @@ public class UI extends JFrame {
         
         // Reset pending flag as we are starting a fresh search
         searchPending = false;
+
+        commitSpinners();
 
         try {
             // Load data first (using cache if possible)
@@ -925,11 +956,11 @@ public class UI extends JFrame {
             }
             
             // Detailed metrics in footer
-            statusLabel.setText("");
             populateMetricsPanel(searchResult, criteriaList);
             
             // Update separate Total Label
             totalLabel.setText(MessageFormat.format(bundle.getString("status.total"), searchResult.getTotalFound()));
+            statusLabel.setText(""); // Keep status label for general info, use totalLabel specifically for matches
             
             // Save original table data for sorting
             originalTableData = new ArrayList<>();
@@ -991,6 +1022,7 @@ public class UI extends JFrame {
         lbl.setFont(new Font("SansSerif", Font.BOLD, 10));
         lbl.setHorizontalAlignment(left ? JLabel.LEFT : JLabel.RIGHT);
         lbl.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10)); // No vertical padding
+        RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(lbl, 1.0);
 
         // Segmented background for clarity with SOLID colors
         int blockIdx = (x < 2) ? 0 : ((x - 2) / 3) + 1;
@@ -1577,7 +1609,8 @@ public class UI extends JFrame {
             minSpellingLabel = new JLabel("Min Spell:");
             minSpellingField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
             minSpellingField.setPreferredSize(new Dimension(80, 32));
-            ((JSpinner.DefaultEditor)minSpellingField.getEditor()).getTextField().addActionListener(e -> onEnter.run());
+            JFormattedTextField tfS = ((JSpinner.DefaultEditor)minSpellingField.getEditor()).getTextField();
+            tfS.addActionListener(e -> { tfS.selectAll(); onEnter.run(); });
             minSpellingField.addChangeListener(e -> onEnter.run());
             add(minSpellingLabel);
             add(minSpellingField);
@@ -1585,7 +1618,8 @@ public class UI extends JFrame {
             minPhoneticLabel = new JLabel("Min Phon:");
             minPhoneticField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
             minPhoneticField.setPreferredSize(new Dimension(80, 32));
-            ((JSpinner.DefaultEditor)minPhoneticField.getEditor()).getTextField().addActionListener(e -> onEnter.run());
+            JFormattedTextField tfP = ((JSpinner.DefaultEditor)minPhoneticField.getEditor()).getTextField();
+            tfP.addActionListener(e -> { tfP.selectAll(); onEnter.run(); });
             minPhoneticField.addChangeListener(e -> onEnter.run());
             add(minPhoneticLabel);
             add(minPhoneticField);
@@ -1674,6 +1708,14 @@ public class UI extends JFrame {
 
         public void setMinPhonetic(double val) {
             minPhoneticField.setValue(val);
+        }
+
+        public void commitSpinners() {
+            try {
+                weightSpinner.commitEdit();
+                minSpellingField.commitEdit();
+                minPhoneticField.commitEdit();
+            } catch (Exception e) {}
         }
     }
     
