@@ -19,15 +19,24 @@ public class ConfigManager {
         @XmlElementWrapper(name = "SelectedCriteria")
         @XmlElement(name = "Criteria")
         public java.util.List<CriteriaConfig> criteriaList = new java.util.ArrayList<>();
+
+        @XmlElementWrapper(name = "AvailableColumns")
+        @XmlElement(name = "Column")
+        public java.util.List<ColumnConfig> availableColumns = new java.util.ArrayList<>();
+    }
+
+    @XmlAccessorType(XmlAccessType.FIELD)
+    public static class ColumnConfig {
+        public String name = "";
+        public int index = -1;
     }
 
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class CriteriaConfig {
-        public String columnName = "";
-        public int columnIndex = -1;
         public String value = "";
         public String type = "SIMILARITY"; 
-        public int weight = 1;
+        public double spellingWeight = 1.0;
+        public double phoneticWeight = 1.0;
         public double minSpelling = 0.8;
         public double minPhonetic = 0.8;
     }

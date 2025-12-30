@@ -9,49 +9,53 @@ import lombok.Data;
 @Data
 public class Criteria {
 
-    public enum MatchingType {
-        REGEX, SIMILARITY, EXACT
-    }
+	public enum MatchingType {
+		REGEX, SIMILARITY, EXACT
+	}
 
-    public String value;
-    public int weight;
-    public double minSpellingScore;
-    public double minPhoneticScore;
-    public MatchingType matchingType;
-    public Pattern pattern;
+	public String value;
+	public double minSpellingScore;
+	public double minPhoneticScore;
+	public MatchingType matchingType;
+	public Pattern pattern;
 
-    public Criteria(String value, int weight, double minSpellingScore, double minPhoneticScore, MatchingType matchingType) {
-        super();
-        this.value = StringUtils.isBlank(value) ? null : value.trim().toUpperCase();
-        this.weight = weight;
-        this.minSpellingScore = minSpellingScore;
-        this.minPhoneticScore = minPhoneticScore;
-        this.matchingType = matchingType;
-        
-        // Compile regex pattern if matchingType is REGEX
-        if (matchingType == MatchingType.REGEX && this.value != null) {
-            try {
-                this.pattern = Pattern.compile(this.value);
-            } catch (Exception e) {
-                // If pattern compilation fails, set to null
-                this.pattern = null;
-            }
-        }
-    }
+	private double spellingWeight;
+	private double phoneticWeight;
 
-    public static Criteria similarity(String value, int weight, double minSpelling, double minPhonetic) {
-        return new Criteria(value, weight, minSpelling, minPhonetic, MatchingType.SIMILARITY);
-    }
+	public Criteria(String value, double spellingWeight, double phoneticWeight, double minSpellingScore,
+			double minPhoneticScore, MatchingType matchingType) {
+		super();
+		this.value = StringUtils.isBlank(value) ? null : value.trim().toUpperCase();
+		this.spellingWeight = spellingWeight;
+		this.phoneticWeight = phoneticWeight;
+		this.minSpellingScore = minSpellingScore;
+		this.minPhoneticScore = minPhoneticScore;
+		this.matchingType = matchingType;
 
-    public static Criteria exact(String value, int weight) {
-        return new Criteria(value, weight, -1, -1, MatchingType.EXACT);
-    }
-    
-    public static Criteria regex(String value, int weight) {
-        return new Criteria(value, weight, -1, -1, MatchingType.REGEX);
-    }
-    
-    public boolean isBlank() {
-        return value == null;
-    }
+		// Compile regex pattern if matchingType is REGEX
+		if (matchingType == MatchingType.REGEX && this.value != null) {
+			try {
+				this.pattern = Pattern.compile(this.value);
+			} catch (Exception ex) {
+				throw new IllegalStateException(ex);
+			}
+		}
+	}
+
+	public static Criteria similarity(String value, double spellingWeight, double phoneticWeight, double minSpelling,
+			double minPhonetic) {
+		return new Criteria(value, spellingWeight, phoneticWeight, minSpelling, minPhonetic, MatchingType.SIMILARITY);
+	}
+
+	public static Criteria exact(String value, double spellingWeight, double phoneticWeight) {
+		return new Criteria(value, spellingWeight, phoneticWeight, -1, -1, MatchingType.EXACT);
+	}
+
+	public static Criteria regex(String value, double spellingWeight, double phoneticWeight) {
+		return new Criteria(value, spellingWeight, phoneticWeight, -1, -1, MatchingType.REGEX);
+	}
+
+	public boolean isBlank() {
+		return StringUtils.isBlank(value);
+	}
 }

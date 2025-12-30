@@ -1,5 +1,5 @@
 package com.makfuzz.core;
- 
+
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,18 +13,19 @@ public class Fuzz {
 
 	static final String SEP = "[,;]";
 	private static final JaroWinklerSimilarity SPELLING_STRATEGY = new JaroWinklerSimilarity();
-	
+
 	// Engines
 	private static final FrenchSoundex FRENCH_ENGINE = new FrenchSoundex();
 	private static final PhoneticEngine DEFAULT_ENGINE = new PhoneticEngine(NameType.GENERIC, RuleType.APPROX, true);
 
 	// Cache to avoid recalculating expensive phonetic codes for repeating names
 	// This makes a HUGE difference in performance on large datasets
-	private static final java.util.Map<String, String> PHONETIC_CACHE = new java.util.concurrent.ConcurrentHashMap<>(2000);
+	private static final java.util.Map<String, String> PHONETIC_CACHE = new java.util.concurrent.ConcurrentHashMap<>(
+			2000);
 	private static String currentCacheLang = "";
 
-	public static SearchResult bestMatch(Collection<String[]> candidates, List<Criteria> criterias, double threshold,
-			int topN, String lang) {
+	public static SearchResult bestMatch(Collection<String[]> candidates, List<Criteria> criterias,
+			List<Integer> searchColumnIndexes, double threshold, int topN, String lang) {
 
 		if (criterias == null || criterias.isEmpty()) {
 			return new SearchResult(java.util.Collections.emptyList(), 0, 0, 0, null, null, null, 0);
@@ -39,146 +40,108 @@ public class Fuzz {
 		boolean isFrench = "fr".equalsIgnoreCase(lang);
 
 		int count = criterias.size();
-		List<Integer> activeIndexes = new java.util.ArrayList<>();
-		
+
 		// Pre-optimized criteria data
 		String[] criteriaValues = new String[count];
 		String[] criteriaPhoneticCodes = new String[count];
-		double totalWeight = 0.0;
 
 		for (int i = 0; i < count; i++) {
 			Criteria cI = criterias.get(i);
 			if (cI != null && !cI.isBlank()) {
-				activeIndexes.add(i);
-				totalWeight += cI.weight;
 				criteriaValues[i] = cI.value;
 				// PRE-OPTIMIZATION: Calculate search criteria phonetic code ONCE
 				criteriaPhoneticCodes[i] = isFrench ? FRENCH_ENGINE.encode(cI.value) : DEFAULT_ENGINE.encode(cI.value);
 			}
 		}
 
-		if (activeIndexes.isEmpty()) {
-			List<SimResult> defaultResults = candidates.stream()
-					.limit(topN)
-					.map(t -> new SimResult(t, 1.0))
-					.collect(Collectors.toList());
-			return new SearchResult(defaultResults, 0, 1.0, 1.0, null, null, null, candidates.size());
-		}
-
-		if (totalWeight <= 0) {
-			return new SearchResult(java.util.Collections.emptyList(), 0, 0, 0, null, null, null, 0);
-		}
-
-		final double finalTotalWeight = totalWeight;
-
 		// We need to collect all that pass criteria to calculate stats accurately
-		List<SimResult> allPotential = candidates.parallelStream()
-				.map(t -> {
-					double[] spellingDetails = new double[count];
-					double[] phoneticDetails = new double[count];
-					double weightedChoiceSum = 0d;
-					double weightedSpellingSum = 0d;
-					double weightedPhoneticSum = 0d;
-					boolean isCandidateValid = true;
+		List<LineSimResult> allPotential = candidates.parallelStream().map(t -> {
 
-					for (int i : activeIndexes) {
-						Criteria cI = criterias.get(i);
-						double spellingScore = 0.0;
-						double phoneticScore = 0.0;
-						double choiceScore = 0.0;
-						
-						String cellValue = (t != null && i < t.length) ? t[i].trim().toUpperCase() : null;
+			LineSimResult lsr = new LineSimResult();
+			lsr.setCandidate(t);
 
-						if (cellValue == null || cellValue.isEmpty()) {
-							// Skip or treat as zero match
-						} else if (cI.matchingType == Criteria.MatchingType.EXACT) {
-							if (cellValue.equalsIgnoreCase(criteriaValues[i])) {
-								spellingScore = phoneticScore = choiceScore = 1.0;
-							} else {
-								return null;
-							}
-						} else if (cI.matchingType == Criteria.MatchingType.REGEX) {
-							if (cI.pattern != null && cI.pattern.matcher(cellValue).matches()) {
-								spellingScore = phoneticScore = choiceScore = 1.0;
-							} else {
-								return null;
-							}
+			lsr.initSimResults(criterias);
+
+			List<SimResult> simResults = lsr.getSimResults();
+
+			for (int i = 0; i < count; i++) {
+				SimResult sr = simResults.get(i);
+				Criteria c = sr.getCriteria();
+				if (c == null || c.isBlank()) continue;
+
+				String critValue = c.getValue();
+				String critPhonetic = criteriaPhoneticCodes[i];
+
+				for (int idx : searchColumnIndexes) {
+					if (idx < 0 || idx >= t.length) continue;
+					String cellValue = (t[idx] != null) ? t[idx].trim().toUpperCase() : "";
+					if (cellValue.isEmpty()) continue;
+
+					double spellingScore = 0.0;
+					double phoneticScore = 0.0;
+
+					if (c.getMatchingType() == Criteria.MatchingType.EXACT) {
+						spellingScore = cellValue.equals(critValue) ? 1.0 : 0.0;
+						phoneticScore = 1.0; // Phonetic irrelevant for EXACT
+					} else if (c.getMatchingType() == Criteria.MatchingType.REGEX && c.getPattern() != null) {
+						spellingScore = c.getPattern().matcher(cellValue).find() ? 1.0 : 0.0;
+						phoneticScore = 1.0; // Phonetic irrelevant for REGEX
+					} else {
+						// SIMILARITY
+						spellingScore = SPELLING_STRATEGY.apply(cellValue, critValue);
+
+						// Phonetic Score
+						String cellPhonetic = PHONETIC_CACHE.computeIfAbsent(cellValue, k -> isFrench ? FRENCH_ENGINE.encode(k) : DEFAULT_ENGINE.encode(k));
+
+						if (cellPhonetic.equals(critPhonetic)) {
+							phoneticScore = 1.0;
 						} else {
-							// 1. Calculate Spelling (Jaro-Winkler)
-							spellingScore = SPELLING_STRATEGY.apply(cellValue, criteriaValues[i]);
-							
-							// 2. Calculate Fuzzy Phonetic Score
-							// CACHING: Use the cache for cells, but pre-calculated codes for criteria
-							String code1 = PHONETIC_CACHE.computeIfAbsent(cellValue, k -> isFrench ? FRENCH_ENGINE.encode(k) : DEFAULT_ENGINE.encode(k));
-							String code2 = criteriaPhoneticCodes[i];
-							
-							if (code1.equals(code2)) {
-								phoneticScore = 1.0;
-							} else {
-								if (!isFrench) {
-									// Clean up Beider-Morse noise "(|)" for better fuzzy comparison
-									String clean1 = code1.replaceAll("[()|]", "");
-									String clean2 = code2.replaceAll("[()|]", "");
-									phoneticScore = SPELLING_STRATEGY.apply(clean1, clean2);
-								} else {
-									phoneticScore = SPELLING_STRATEGY.apply(code1, code2);
-								}
-							}
-
-							// Calculation based on user formula: average of spelling and phonetic
-							choiceScore = (spellingScore + phoneticScore) / 2.0;
-
-							// STRICT FILTERING: Must pass BOTH thresholds independently
-							boolean spellingPasses = spellingScore >= cI.minSpellingScore;
-							boolean phoneticPasses = phoneticScore >= cI.minPhoneticScore;
-							
-							if (!spellingPasses || !phoneticPasses) {
-								isCandidateValid = false;
-							}
+							phoneticScore = SPELLING_STRATEGY.apply(cellPhonetic, critPhonetic);
 						}
-
-						spellingDetails[i] = spellingScore;
-						phoneticDetails[i] = phoneticScore;
-						
-						weightedChoiceSum += choiceScore * cI.weight;
-						weightedSpellingSum += spellingScore * cI.weight;
-						weightedPhoneticSum += phoneticScore * cI.weight;
 					}
 
-					double finalScore = weightedChoiceSum / finalTotalWeight;
-					SimResult result = new SimResult(t, finalScore);
-					result.setSpellingScore(weightedSpellingSum / finalTotalWeight);
-					result.setSpellingScoreDetails(spellingDetails);
-					result.setPhoneticScore(weightedPhoneticSum / finalTotalWeight);
-					result.setPhoneticScoreDetails(phoneticDetails);
-					result.setValid(isCandidateValid);
-					
-					return result;
-				})
-				.filter(p -> p != null)
-				.distinct()
-				.collect(Collectors.toList());
+					double score = calculateScore(c, spellingScore, phoneticScore);
 
-		List<SimResult> above = allPotential.stream()
-				.filter(p -> p.isValid() && p.getScore() >= threshold)
-				.sorted()
-				.collect(Collectors.toList());
+					if (Double.compare(score, sr.getScore()) > 0 && spellingScore >= c.getMinSpellingScore() && phoneticScore >= c.getMinPhoneticScore()) {
+						sr.setPhoneticScore(phoneticScore);
+						sr.setSpellingScore(spellingScore);
+						sr.setScore(score);
+						sr.setColumnIndex(idx);
+					}
+				}
+			}
 
-		SimResult maxUnderCandidate = allPotential.stream()
-				.filter(p -> !p.isValid() || p.getScore() < threshold)
-				.max(java.util.Comparator.comparingDouble(SimResult::getScore))
-				.orElse(null);
+			lsr.setScore(calculateScore(lsr));
 
-		double maxUnder = maxUnderCandidate != null ? maxUnderCandidate.getScore() : 0.0;
+			return lsr;
 
-		SimResult minAboveCandidate = above.isEmpty() ? null : above.get(above.size() - 1);
-		SimResult maxAboveCandidate = above.isEmpty() ? null : above.get(0);
-		
-		double minAbove = minAboveCandidate != null ? minAboveCandidate.getScore() : 0.0;
-		double maxAbove = maxAboveCandidate != null ? maxAboveCandidate.getScore() : 0.0;
+		}).filter(p -> p != null && p.getScore() > 0 && p.getScore() >= threshold).sorted().limit(topN).collect(Collectors.toList());
 
-		List<SimResult> results = above.stream().limit(topN).collect(Collectors.toList());
+		return new SearchResult(allPotential);
+	}
 
-		return new SearchResult(results, maxUnder, minAbove, maxAbove, maxUnderCandidate, minAboveCandidate, maxAboveCandidate, above.size());
+	private static double calculateScore(Criteria cr, double spellingScore, double phoneticScore) {
+		double totalWeight = cr.getSpellingWeight() + cr.getPhoneticWeight();
+		if (totalWeight == 0) return 0.0;
+		return (spellingScore * cr.getSpellingWeight() + phoneticScore * cr.getPhoneticWeight()) / totalWeight;
+	}
+
+	private static double calculateScore(LineSimResult lsr) {
+		if (lsr.getSimResults() == null || lsr.getSimResults().isEmpty()) {
+			return 0.0;
+		}
+
+		double totalScore = 1.0;
+		boolean hasActiveCriteria = false;
+
+		for (SimResult sr : lsr.getSimResults()) {
+			Criteria c = sr.getCriteria();
+			if (c == null || c.isBlank()) continue;
+
+			hasActiveCriteria = true;
+			totalScore *= sr.getScore();
+		}
+
+		return hasActiveCriteria ? totalScore : 0.0;
 	}
 }
