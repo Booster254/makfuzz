@@ -87,9 +87,7 @@ public class UI extends JFrame {
 	private JButton addCriteriaBtn;
 	private JLabel statusLabel;
 	private JLabel totalFoundLabel;
-	private JLabel maxUnderLabel;
-	private JLabel minAboveLabel;
-	private JLabel maxAboveLabel;
+	private SearchResult lastSearchResult;
 
 	// I18N Fields
 	private ResourceBundle bundle;
@@ -750,15 +748,6 @@ public class UI extends JFrame {
 		totalFoundLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
 		metricPanel.add(totalFoundLabel);
 
-		maxUnderLabel = createClickableMetricLabel("search.metrics.max_under");
-		metricPanel.add(maxUnderLabel);
-
-		minAboveLabel = createClickableMetricLabel("search.metrics.min_above");
-		metricPanel.add(minAboveLabel);
-
-		maxAboveLabel = createClickableMetricLabel("search.metrics.max_above");
-		metricPanel.add(maxAboveLabel);
-
 		footer.add(metricPanel, BorderLayout.EAST);
 		add(footer, BorderLayout.SOUTH);
 	}
@@ -962,7 +951,7 @@ public class UI extends JFrame {
 					// Score details (% cols: Spell, Phon)
 					col.setCellRenderer(new PercentRenderer());
 					col.setHeaderRenderer(rightHeader);
-					col.setPreferredWidth(80); // Slightly wider for 00.00%
+					col.setPreferredWidth(110); // Slightly wider for full labels like Orthographe %
 				}
 			}
 		}
@@ -1066,6 +1055,7 @@ public class UI extends JFrame {
 	}
 
 	private void updateResults(SearchResult searchResult, List<Criteria> criteriaList) {
+		this.lastSearchResult = searchResult;
 		try {
 			List<LineSimResult> results = searchResult.getResults();
 			int numCriteria = criteriaList.size();
@@ -1084,18 +1074,7 @@ public class UI extends JFrame {
 				statusLabel.setText(bundle.getString("status.ready"));
 			}
 			if (totalFoundLabel != null) {
-				totalFoundLabel.setText(MessageFormat.format(bundle.getString("status.total"), searchResult.getTotalFound()));
-			}
-
-			java.text.DecimalFormat df = new java.text.DecimalFormat("0.00%");
-			if (maxUnderLabel != null) {
-				maxUnderLabel.setText(bundle.getString("search.metrics.max_under") + " " + df.format(searchResult.getMaxUnderThreshold()));
-			}
-			if (minAboveLabel != null) {
-				minAboveLabel.setText(bundle.getString("search.metrics.min_above") + " " + df.format(searchResult.getMinAboveThreshold()));
-			}
-			if (maxAboveLabel != null) {
-				maxAboveLabel.setText(bundle.getString("search.metrics.max_above") + " " + df.format(searchResult.getMaxAboveThreshold()));
+				totalFoundLabel.setText(MessageFormat.format(bundle.getString("status.total"), searchResult.getTotalFound(), searchResult.getTotalResults()));
 			}
 
 			int tableRowIndex = 1;
@@ -1290,16 +1269,14 @@ public class UI extends JFrame {
 	}
 
 	private void saveCSV(File file) {
+		if (lastSearchResult == null || lastSearchResult.getAllFoundResults() == null) {
+			return;
+		}
+
 		try (FileWriter out = new FileWriter(file)) {
-			// Fetch original lines and headers
-			java.util.Map<Integer, String> originalLines = fetchOriginalLines();
 			String[] originalHeaders = fetchOriginalHeaders();
 
-			// Write Headers
-			for (int i = 0; i < tableModel.getColumnCount(); i++) {
-				out.write(escapeCSV(tableModel.getColumnName(i)) + ",");
-			}
-			// Add original CSV headers
+			// Write Headers (original CSV format)
 			for (int i = 0; i < originalHeaders.length; i++) {
 				out.write(escapeCSV(originalHeaders[i]));
 				if (i < originalHeaders.length - 1) {
@@ -1308,35 +1285,21 @@ public class UI extends JFrame {
 			}
 			out.write("\n");
 
-			// Write Data
-			for (int i = 0; i < tableModel.getRowCount(); i++) {
-				for (int j = 0; j < tableModel.getColumnCount(); j++) {
-					Object val = tableModel.getValueAt(i, j);
-					String v = (val == null ? "" : val.toString());
-					out.write(escapeCSV(v) + ",");
-				}
-
-				// Append original row fields as individual columns
-				try {
-					int fileRowIdx = Integer.parseInt(tableModel.getValueAt(i, 1).toString());
-					String fullLine = originalLines.getOrDefault(fileRowIdx, "");
-					String[] fields = parseCSVLine(fullLine);
-					for (int k = 0; k < fields.length; k++) {
-						out.write(escapeCSV(fields[k]));
-						if (k < fields.length - 1) {
-							out.write(",");
-						}
-					}
-				} catch (Exception e) {
-					// Write empty fields if parsing fails
-					for (int k = 0; k < originalHeaders.length; k++) {
-						if (k > 0) {
-							out.write(",");
-						}
+			// Write Data for ALL found results
+			for (LineSimResult res : lastSearchResult.getAllFoundResults()) {
+				String[] cand = res.getCandidate();
+				// Use the candidate array which contains the original fields (except the last element which is the row index)
+				int numFields = originalHeaders.length;
+				for (int k = 0; k < numFields; k++) {
+					String val = (k < cand.length) ? cand[k] : "";
+					out.write(escapeCSV(val));
+					if (k < numFields - 1) {
+						out.write(",");
 					}
 				}
 				out.write("\n");
 			}
+
 			if (Desktop.isDesktopSupported()) {
 				Desktop.getDesktop().open(file);
 			}
@@ -1529,15 +1492,36 @@ public class UI extends JFrame {
 				cell.setCellStyle(originalHeaderStyle);
 			}
 
+			CellStyle percentStyle = workbook.createCellStyle();
+			percentStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
+			percentStyle.setAlignment(HorizontalAlignment.RIGHT);
+
 			// Write Data
 			for (int i = 0; i < tableModel.getRowCount(); i++) {
 				Row row = sheet.createRow(i + 1);
 				colIdx = 0;
+				int numAvail = availableColumns.size();
 				for (int j = 0; j < tableModel.getColumnCount(); j++) {
 					Cell cell = row.createCell(colIdx++);
 					Object val = tableModel.getValueAt(i, j);
+					
+					// Handle the HIDDEN_DATA column separately (it's the last one)
+					if (j == tableModel.getColumnCount() - 1) {
+						int fileRowIdx = Integer.parseInt(tableModel.getValueAt(i, 1).toString());
+						String fullLine = originalLines.getOrDefault(fileRowIdx, "");
+						cell.setCellValue(fullLine);
+						continue;
+					}
+
 					if (val instanceof Number) {
 						cell.setCellValue(((Number) val).doubleValue());
+						
+						// Apply percentage format to score columns
+						boolean isScoreCol = (j == 2 + numAvail);
+						boolean isCriteriaScoreCol = (j > 2 + numAvail) && ((j - 2 - numAvail - 1) % 3 != 0);
+						if (isScoreCol || isCriteriaScoreCol) {
+							cell.setCellStyle(percentStyle);
+						}
 					} else {
 						cell.setCellValue(val == null ? "" : val.toString());
 					}
@@ -1578,6 +1562,9 @@ public class UI extends JFrame {
 			// Freeze after all synthesis columns (before original CSV columns start)
 			int freezeAfterColumn = tableModel.getColumnCount();
 			sheet.createFreezePane(freezeAfterColumn, 1); // Freeze columns and first row (header)
+
+			int hiddenDataColIdx = tableModel.getColumnCount() - 1;
+			sheet.setColumnHidden(hiddenDataColIdx, true);
 
 			workbook.write(fileOut);
 

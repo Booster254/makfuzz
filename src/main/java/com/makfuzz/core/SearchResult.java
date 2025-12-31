@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 public class SearchResult {
 	private List<LineSimResult> results;
+	private List<LineSimResult> allFoundResults;
 	private double maxUnderThreshold = 0.0;
 	private double minAboveThreshold = 0.0;
 	private double maxAboveThreshold = 0.0;
@@ -14,6 +15,7 @@ public class SearchResult {
 	private SimResult minAboveCandidate = null;
 	private SimResult maxAboveCandidate = null;
 	private int totalFound;
+	private int totalResults;
 
 	public SearchResult(List<LineSimResult> results, double maxUnder, double minAbove, double maxAbove,
 			SimResult maxUnderCand, SimResult minAboveCand, SimResult maxAboveCand, int totalFound) {

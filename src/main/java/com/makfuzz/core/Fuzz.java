@@ -150,12 +150,15 @@ public class Fuzz {
 
 		}).filter(p -> p != null && p.getScore() > 0).toList();
 
-		int totalFound = (int) allMatches.stream().filter(p -> p.getScore() >= threshold).count();
+		List<LineSimResult> allFoundMatches = allMatches.stream().filter(p -> p.getScore() >= threshold)
+				.sorted(Comparator.reverseOrder()).toList();
 
-		List<LineSimResult> filtered = allMatches.stream().filter(p -> p.getScore() >= threshold)
-				.sorted(Comparator.reverseOrder()).limit(topN).toList();
+		int totalFound = allFoundMatches.size();
+
+		List<LineSimResult> filtered = allFoundMatches.stream().limit(topN).toList();
 
 		SearchResult sr = new SearchResult(filtered, totalFound);
+		sr.setAllFoundResults(allFoundMatches);
 
 		// Calculate metrics
 		double maxUnder = 0;
@@ -181,6 +184,7 @@ public class Fuzz {
 		sr.setMaxUnderThreshold(maxUnder);
 		sr.setMinAboveThreshold(minAbove == 1.0 && filtered.isEmpty() ? 0 : minAbove);
 		sr.setMaxAboveThreshold(maxAbove);
+		sr.setTotalResults(candidates.size());
 
 		return sr;
 	}
