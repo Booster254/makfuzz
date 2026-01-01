@@ -54,7 +54,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.pushingpixels.radiance.theming.api.RadianceThemingCortex;
+import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 import com.makfuzz.core.Criteria;
 import com.makfuzz.core.Fuzz;
@@ -118,26 +119,40 @@ public class UI extends JFrame {
 	private static final String CARD_LOADING = "LOADING";
 
 	public UI() {
-		// Apply Radiance Mariner Theme for a trending, high-fidelity modern UI
-		try {
-			UIManager.setLookAndFeel("org.pushingpixels.radiance.theming.api.skin.RadianceMarinerLookAndFeel");
+		// Apply FlatLaf Light theme with modern customizations
+		com.formdev.flatlaf.FlatLightLaf.setup();
 
-			// Global overrides for consistent UI
-			UIManager.put("Button.font", new Font("SansSerif", Font.BOLD, 12));
-			UIManager.put("TextField.font", new Font("SansSerif", Font.PLAIN, 12));
-			UIManager.put("ComboBox.font", new Font("SansSerif", Font.PLAIN, 12));
-			UIManager.put("Table.rowHeight", 28);
+		// Modern rounded corners
+		UIManager.put("Button.arc", 8);
+		UIManager.put("Component.arc", 8);
+		UIManager.put("TextComponent.arc", 8);
+		UIManager.put("ProgressBar.arc", 8);
+		UIManager.put("CheckBox.arc", 6);
+		UIManager.put("ComboBox.arc", 8);
 
-			// Optimization for Windows JFileChooser performance
-			if (System.getProperty("os.name").toLowerCase().contains("win")) {
-				UIManager.put("FileChooser.useShellFolder", Boolean.FALSE);
-			}
-		} catch (Exception ignored) {
-			try {
-				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-			} catch (Exception e) {
-			}
-		}
+		// Professional color scheme
+		UIManager.put("Button.background", new Color(99, 102, 241)); // Vibrant indigo
+		UIManager.put("Button.foreground", Color.WHITE);
+		UIManager.put("Button.hoverBackground", new Color(79, 70, 229));
+		UIManager.put("Button.pressedBackground", new Color(67, 56, 202));
+
+		// Table styling
+		UIManager.put("Table.rowHeight", 26);
+		UIManager.put("Table.font", new Font("SansSerif", Font.PLAIN, 11));
+
+		UIManager.put("Table.showHorizontalLines", true);
+		UIManager.put("Table.showVerticalLines", false);
+		UIManager.put("Table.intercellSpacing", new Dimension(0, 1));
+		UIManager.put("Table.selectionBackground", new Color(224, 231, 255));
+		UIManager.put("Table.selectionForeground", new Color(30, 30, 30));
+		UIManager.put("TableHeader.background", new Color(249, 250, 251));
+		UIManager.put("TableHeader.foreground", new Color(55, 65, 81));
+		UIManager.put("TableHeader.font", new Font("SansSerif", Font.BOLD, 11));
+		UIManager.put("TableHeader.separatorColor", new Color(229, 231, 235));
+
+		// Panel backgrounds
+		UIManager.put("Panel.background", new Color(249, 250, 251));
+
 
 		setTitle("MakFuzz - Fuzzy Search ✨");
 		setSize(1400, 850);
@@ -158,34 +173,43 @@ public class UI extends JFrame {
 	}
 
 	private void setupUI() {
-		JPanel headerPanel = new JPanel(new MigLayout("fillx, ins 20 10 10 10, wrap 1", "[grow]"));
+		JPanel headerPanel = new JPanel(new MigLayout("fillx, ins 15 10 8 10, wrap 1", "[grow]"));
+		headerPanel.setBackground(new Color(249, 250, 251)); // Light gray background
+
 
 
 		// 0. App Title Section
 		JPanel titleBox = new JPanel(new MigLayout("fillx, ins 0", "[grow][]"));
 		appTitle = new JLabel("MakFuzz");
-		appTitle.setFont(new Font("SansSerif", Font.BOLD, 22));
-		appTitle.setForeground(new Color(63, 81, 181));
+		appTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
+		appTitle.setForeground(new Color(79, 70, 229)); // Modern indigo
+
 		titleBox.add(appTitle, "growx");
 
 		appSubtitle = new JLabel("Optimized Similarity Engine");
-		appSubtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
-		appSubtitle.setForeground(Color.GRAY);
+		appSubtitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
+		appSubtitle.setForeground(new Color(107, 114, 128)); // Soft gray
 		titleBox.add(appSubtitle, "newline, growx");
-		headerPanel.add(titleBox, "growx, gapbottom 20");
+		headerPanel.add(titleBox, "growx, gapbottom 12");
 
 
 		// 1. Data Source Card
-		JPanel sourcePanel = new JPanel(new MigLayout("ins 10, fillx", "[][grow][][]"));
+		JPanel sourcePanel = new JPanel(new MigLayout("ins 8, fillx", "[][grow][][]"));
 		sourcePanel.setBackground(Color.WHITE);
-		sourcePanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+		sourcePanel.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(new Color(229, 231, 235), 1),
+				BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 
 
 		srcLabel = new JLabel("Data Source:");
-		srcLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+		srcLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+		srcLabel.setForeground(new Color(55, 65, 81));
 
-		sourcePathField = new JTextField("./names.csv", 60);
+		sourcePathField = new JTextField("", 60);
 		sourcePathField.setEditable(false);
+		sourcePathField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, bundle.getString("source.placeholder"));
+		sourcePathField.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
+
 
 		browseBtn = new JButton("Browse");
 		browseBtn.addActionListener(e -> chooseFileAndColumns());
@@ -209,10 +233,10 @@ public class UI extends JFrame {
 		JPanel sourceInfoPanel = new JPanel(new MigLayout("ins 0 15 0 15", "[grow]"));
 		sourceInfoPanel.setOpaque(false);
 		selectedColumnsLabel = new JLabel("Selected Columns: None");
-		selectedColumnsLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
-		selectedColumnsLabel.setForeground(new Color(100, 100, 100));
+		selectedColumnsLabel.setFont(new Font("SansSerif", Font.ITALIC, 10));
+		selectedColumnsLabel.setForeground(new Color(107, 114, 128));
 		sourceInfoPanel.add(selectedColumnsLabel, "growx");
-		headerPanel.add(sourceInfoPanel, "growx, gaptop 5, gapbottom 15");
+		headerPanel.add(sourceInfoPanel, "growx, gaptop 3, gapbottom 10");
 
 
 		// 2. Search Card
@@ -565,27 +589,30 @@ public class UI extends JFrame {
 	}
 
 	private void setupTopPanel(JPanel parent) {
-		JPanel mainPanel = new JPanel(new MigLayout("fillx, ins 15, wrap 1", "[grow]"));
+		JPanel mainPanel = new JPanel(new MigLayout("fillx, ins 10, wrap 1", "[grow]"));
 		mainPanel.setBackground(Color.WHITE);
-		mainPanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+		mainPanel.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(new Color(229, 231, 235), 1),
+				BorderFactory.createEmptyBorder(8, 8, 8, 8)));
 
 		JPanel configHeader = new JPanel(new MigLayout("fillx, ins 0", "[grow][]"));
 		configHeader.setOpaque(false);
 
 		criteriaLabel = new JLabel("Search Configuration:");
-		criteriaLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+		criteriaLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+		criteriaLabel.setForeground(new Color(55, 65, 81));
 		configHeader.add(criteriaLabel, "growx");
 
 		addCriteriaBtn = new JButton("+ Add Criterion");
-		addCriteriaBtn.setPreferredSize(new Dimension(225, 32));
+		addCriteriaBtn.setPreferredSize(new Dimension(200, 28));
 		addCriteriaBtn.addActionListener(e -> addNewCriteriaLine());
 		configHeader.add(addCriteriaBtn, "right");
 
-		mainPanel.add(configHeader, "growx, gapbottom 10");
+		mainPanel.add(configHeader, "growx, gapbottom 8");
 
 		criteriaContainer = new JPanel(new MigLayout("fillx, ins 0, wrap 1", "[grow]"));
 		criteriaContainer.setOpaque(false);
-		mainPanel.add(criteriaContainer, "growx, gapbottom 15");
+		mainPanel.add(criteriaContainer, "growx, gapbottom 10");
 
 
 		JPanel bottomBar = new JPanel(new MigLayout("ins 0, fillx", "[][][grow][][][][][][]"));
@@ -610,6 +637,8 @@ public class UI extends JFrame {
 
 		thresholdLabel = new JLabel("Global Threshold:");
 		globalThresholdField = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
+		globalThresholdField.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
+
 		setupDotDecimalSpinner(globalThresholdField, "0.00");
 		JFormattedTextField tfThresh = ((JSpinner.DefaultEditor) globalThresholdField.getEditor()).getTextField();
 		tfThresh.addActionListener(e -> {
@@ -622,6 +651,8 @@ public class UI extends JFrame {
 
 		limitLabel = new JLabel("Top N Limit:");
 		topNField = new JTextField("1000", 5);
+		topNField.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
+
 		topNField.addActionListener(e -> {
 			topNField.selectAll();
 			performSearch();
@@ -630,9 +661,10 @@ public class UI extends JFrame {
 		bottomBar.add(topNField, "w 80!, h 32!");
 
 		executeBtn = new JButton("Run Search");
-		executeBtn.setBackground(new Color(7, 15, 30)); // Matches footer background
+		executeBtn.setBackground(new Color(99, 102, 241)); // Vibrant indigo
 		executeBtn.setForeground(Color.WHITE);
-		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(executeBtn, 1.0);
+		executeBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 8; borderWidth: 0;");
+
 		executeBtn.setFocusPainted(false);
 		executeBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
 		executeBtn.addActionListener(e -> performSearch());
@@ -662,15 +694,16 @@ public class UI extends JFrame {
 		resultTable = new JTable(tableModel);
 		resultTable.getTableHeader().setReorderingAllowed(false);
 		resultTable.setShowGrid(true);
-		resultTable.setGridColor(new Color(230, 230, 230));
-		resultTable.setRowHeight(25);
-		resultTable.setSelectionBackground(new Color(232, 234, 246));
-		resultTable.setSelectionForeground(Color.BLACK);
+		resultTable.setGridColor(new Color(243, 244, 246));
+		resultTable.setRowHeight(26);
+		resultTable.setSelectionBackground(new Color(224, 231, 255));
+		resultTable.setSelectionForeground(new Color(30, 30, 30));
 
-		// Style table header with soft background
-		resultTable.getTableHeader().setBackground(new Color(232, 234, 246));
-		resultTable.getTableHeader().setForeground(new Color(63, 81, 181));
-		resultTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+		// Modern table header
+		resultTable.getTableHeader().setBackground(new Color(249, 250, 251));
+		resultTable.getTableHeader().setForeground(new Color(55, 65, 81));
+
+		resultTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 11));
 
 		// Add double-click listener to table header for sorting
 		resultTable.getTableHeader().addMouseListener(new java.awt.event.MouseAdapter() {
@@ -692,12 +725,13 @@ public class UI extends JFrame {
 		JPanel loadingPanel = new JPanel(new MigLayout("fill, ins 0", "[grow, center]", "[grow, center]"));
 		loadingPanel.setBackground(Color.WHITE);
 
+
 		JPanel loadingContent = new JPanel(new MigLayout("ins 0, wrap 1, align center", "[center]"));
 		loadingContent.setOpaque(false);
 
 		JLabel loadingLabel = new JLabel("Searching...");
 		loadingLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
-		loadingLabel.setForeground(new Color(63, 81, 181));
+		loadingLabel.setForeground(new Color(99, 102, 241));
 
 		JProgressBar centerSpinner = new JProgressBar();
 		centerSpinner.setIndeterminate(true);
@@ -721,10 +755,10 @@ public class UI extends JFrame {
 
 	private void setupFooter() {
 		JPanel footer = new JPanel(new MigLayout("fillx, ins 0 15 0 15, aligny center", "[grow][]", "[]"));
-		footer.setBackground(new Color(7, 15, 30)); // Bold Dark Navy
+		footer.setBackground(new Color(17, 24, 39)); // Modern dark slate
 		footer.setPreferredSize(new Dimension(getWidth(), 40));
 		footer.setBorder(BorderFactory.createCompoundBorder(
-				BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(40, 60, 100)),
+				BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(99, 102, 241)),
 				BorderFactory.createEmptyBorder(0, 15, 0, 15)));
 
 		// statusLabel intentionally not added to footer
@@ -735,7 +769,7 @@ public class UI extends JFrame {
 
 		totalFoundLabel = new JLabel("");
 		totalFoundLabel.setForeground(Color.WHITE);
-		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(totalFoundLabel, 1.0);
+
 		totalFoundLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
 		metricPanel.add(totalFoundLabel, "aligny center");
 
@@ -747,7 +781,7 @@ public class UI extends JFrame {
 	private JLabel createClickableMetricLabel(String bundleKey) {
 		JLabel label = new JLabel("");
 		label.setForeground(Color.WHITE);
-		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(label, 1.0);
+
 		label.setFont(new Font("SansSerif", Font.PLAIN, 12));
 		label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
