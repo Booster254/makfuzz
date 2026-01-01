@@ -8,6 +8,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagLayout;
+import net.miginfocom.swing.MigLayout;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -141,7 +142,7 @@ public class UI extends JFrame {
 		setTitle("MakFuzz - Fuzzy Search ✨");
 		setSize(1400, 850);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setLayout(new BorderLayout());
+		setLayout(new MigLayout("fill, ins 0, wrap 1", "[grow]", "[][grow][]"));
 
 		// Initialize I18N
 		currentLocale = Locale.getDefault();
@@ -157,34 +158,31 @@ public class UI extends JFrame {
 	}
 
 	private void setupUI() {
-		JPanel headerPanel = new JPanel();
-		headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
-		headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 10, 10, 10));
+		JPanel headerPanel = new JPanel(new MigLayout("fillx, ins 20 10 10 10, wrap 1", "[grow]"));
+
 
 		// 0. App Title Section
-		JPanel titleBox = new JPanel(new BorderLayout());
+		JPanel titleBox = new JPanel(new MigLayout("fillx, ins 0", "[grow][]"));
 		appTitle = new JLabel("MakFuzz");
 		appTitle.setFont(new Font("SansSerif", Font.BOLD, 22));
 		appTitle.setForeground(new Color(63, 81, 181));
-		titleBox.add(appTitle, BorderLayout.WEST);
+		titleBox.add(appTitle, "growx");
 
 		appSubtitle = new JLabel("Optimized Similarity Engine");
 		appSubtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
 		appSubtitle.setForeground(Color.GRAY);
-		titleBox.add(appSubtitle, BorderLayout.SOUTH);
-		headerPanel.add(titleBox);
-		headerPanel.add(Box.createVerticalStrut(20));
+		titleBox.add(appSubtitle, "newline, growx");
+		headerPanel.add(titleBox, "growx, gapbottom 20");
+
 
 		// 1. Data Source Card
-		JPanel sourcePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+		JPanel sourcePanel = new JPanel(new MigLayout("ins 10, fillx", "[][grow][][]"));
 		sourcePanel.setBackground(Color.WHITE);
-		sourcePanel
-				.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)),
-						BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+		sourcePanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+
 
 		srcLabel = new JLabel("Data Source:");
 		srcLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-		sourcePanel.add(srcLabel);
 
 		sourcePathField = new JTextField("./names.csv", 60);
 		sourcePathField.setEditable(false);
@@ -200,26 +198,27 @@ public class UI extends JFrame {
 			}
 		});
 
-		sourcePanel.add(sourcePathField);
+		sourcePanel.add(srcLabel);
+		sourcePanel.add(sourcePathField, "growx");
 		sourcePanel.add(browseBtn);
 		sourcePanel.add(colsBtn);
 
-		headerPanel.add(sourcePanel);
+		headerPanel.add(sourcePanel, "growx");
 
-		JPanel sourceInfoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+
+		JPanel sourceInfoPanel = new JPanel(new MigLayout("ins 0 15 0 15", "[grow]"));
 		sourceInfoPanel.setOpaque(false);
 		selectedColumnsLabel = new JLabel("Selected Columns: None");
 		selectedColumnsLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
 		selectedColumnsLabel.setForeground(new Color(100, 100, 100));
-		sourceInfoPanel.add(selectedColumnsLabel);
-		headerPanel.add(sourceInfoPanel);
+		sourceInfoPanel.add(selectedColumnsLabel, "growx");
+		headerPanel.add(sourceInfoPanel, "growx, gaptop 5, gapbottom 15");
 
-		headerPanel.add(Box.createVerticalStrut(15));
 
 		// 2. Search Card
 		setupTopPanel(headerPanel);
 
-		add(headerPanel, BorderLayout.NORTH);
+		add(headerPanel, "growx");
 
 		// 2.5 Footer Panel (Status Bar)
 		setupFooter();
@@ -469,9 +468,8 @@ public class UI extends JFrame {
 			String[] columns = headerLine.split("[,;]");
 
 			// Show column selection dialog
-			JPanel panel = new JPanel();
-			panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-			panel.add(new JLabel(bundle.getString("dialog.select_columns.msg")));
+			JPanel panel = new JPanel(new MigLayout("wrap 1, fillx", "[grow]"));
+			panel.add(new JLabel(bundle.getString("dialog.select_columns.msg")), "gapbottom 10");
 
 			javax.swing.JCheckBox[] checkBoxes = new javax.swing.JCheckBox[columns.length];
 			for (int i = 0; i < columns.length; i++) {
@@ -483,7 +481,7 @@ public class UI extends JFrame {
 						break;
 					}
 				}
-				panel.add(checkBoxes[i]);
+				panel.add(checkBoxes[i], "growx");
 			}
 
 			int result = JOptionPane.showConfirmDialog(this, new JScrollPane(panel),
@@ -544,7 +542,7 @@ public class UI extends JFrame {
 	private void addNewCriteriaLine() {
 		CriteriaLine cl = new CriteriaLine("", () -> performSearch(), this::removeCriteriaLine);
 		criteriaLines.add(cl);
-		criteriaContainer.add(cl);
+		criteriaContainer.add(cl, "growx");
 		criteriaContainer.revalidate();
 		criteriaContainer.repaint();
 		updateTexts();
@@ -567,39 +565,36 @@ public class UI extends JFrame {
 	}
 
 	private void setupTopPanel(JPanel parent) {
-		JPanel mainPanel = new JPanel();
-		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+		JPanel mainPanel = new JPanel(new MigLayout("fillx, ins 15, wrap 1", "[grow]"));
 		mainPanel.setBackground(Color.WHITE);
-		mainPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)),
-				BorderFactory.createEmptyBorder(15, 15, 15, 15)));
+		mainPanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
 
-		JPanel configHeader = new JPanel(new BorderLayout());
+		JPanel configHeader = new JPanel(new MigLayout("fillx, ins 0", "[grow][]"));
 		configHeader.setOpaque(false);
-		configHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
 		criteriaLabel = new JLabel("Search Configuration:");
 		criteriaLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-		configHeader.add(criteriaLabel, BorderLayout.WEST);
+		configHeader.add(criteriaLabel, "growx");
 
 		addCriteriaBtn = new JButton("+ Add Criterion");
 		addCriteriaBtn.setPreferredSize(new Dimension(225, 32));
 		addCriteriaBtn.addActionListener(e -> addNewCriteriaLine());
-		configHeader.add(addCriteriaBtn, BorderLayout.EAST);
+		configHeader.add(addCriteriaBtn, "right");
 
-		mainPanel.add(configHeader);
+		mainPanel.add(configHeader, "growx, gapbottom 10");
 
-		criteriaContainer = new JPanel();
-		criteriaContainer.setLayout(new BoxLayout(criteriaContainer, BoxLayout.Y_AXIS));
+		criteriaContainer = new JPanel(new MigLayout("fillx, ins 0, wrap 1", "[grow]"));
 		criteriaContainer.setOpaque(false);
-		mainPanel.add(criteriaContainer);
+		mainPanel.add(criteriaContainer, "growx, gapbottom 15");
 
-		JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+		JPanel bottomBar = new JPanel(new MigLayout("ins 0, fillx", "[][][grow][][][][][][]"));
+
 
 		JLabel searchLangLabel = new JLabel("Search Lang:");
 		bottomBar.add(searchLangLabel);
 
 		langCombo = new JComboBox<>(new String[] { "EN", "FR" });
-		langCombo.setPreferredSize(new Dimension(80, 32));
 		langCombo.addActionListener(e -> {
 			String selected = (String) langCombo.getSelectedItem();
 			if ("EN".equals(selected)) {
@@ -611,65 +606,49 @@ public class UI extends JFrame {
 			updateTexts();
 			performSearch();
 		});
-		bottomBar.add(langCombo);
-
-		bottomBar.add(Box.createHorizontalStrut(15));
+		bottomBar.add(langCombo, "w 80!, h 32!");
 
 		thresholdLabel = new JLabel("Global Threshold:");
-		bottomBar.add(thresholdLabel);
 		globalThresholdField = new JSpinner(new SpinnerNumberModel(0.3, 0.0, 1.0, 0.05));
 		setupDotDecimalSpinner(globalThresholdField, "0.00");
-		globalThresholdField.setPreferredSize(new Dimension(100, 32));
-
 		JFormattedTextField tfThresh = ((JSpinner.DefaultEditor) globalThresholdField.getEditor()).getTextField();
 		tfThresh.addActionListener(e -> {
 			tfThresh.selectAll();
 			performSearch();
 		});
-
 		globalThresholdField.addChangeListener(e -> performSearch());
-		bottomBar.add(globalThresholdField);
+		bottomBar.add(thresholdLabel, "gapleft 15");
+		bottomBar.add(globalThresholdField, "w 100!, h 32!");
 
-		bottomBar.add(Box.createHorizontalStrut(15));
 		limitLabel = new JLabel("Top N Limit:");
-		bottomBar.add(limitLabel);
 		topNField = new JTextField("1000", 5);
-		topNField.setPreferredSize(new Dimension(80, 32));
 		topNField.addActionListener(e -> {
 			topNField.selectAll();
 			performSearch();
 		});
-		bottomBar.add(topNField);
-		bottomBar.add(Box.createHorizontalStrut(15));
-
-		bottomBar.add(Box.createHorizontalStrut(15));
+		bottomBar.add(limitLabel, "gapleft 15");
+		bottomBar.add(topNField, "w 80!, h 32!");
 
 		executeBtn = new JButton("Run Search");
-		executeBtn.setPreferredSize(new Dimension(210, 32)); // 1.5x original width
 		executeBtn.setBackground(new Color(7, 15, 30)); // Matches footer background
 		executeBtn.setForeground(Color.WHITE);
-
-		// Radiance specific: Force white text by preventing theme-based color changes
 		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(executeBtn, 1.0);
-
 		executeBtn.setFocusPainted(false);
 		executeBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
 		executeBtn.addActionListener(e -> performSearch());
-		bottomBar.add(executeBtn);
+		bottomBar.add(executeBtn, "gapleft 20, w 210!, h 32!");
 
 		csvBtn = new JButton("Export CSV");
-		csvBtn.setPreferredSize(new Dimension(120, 32));
 		csvBtn.addActionListener(e -> exportToCSV());
-		bottomBar.add(csvBtn);
+		bottomBar.add(csvBtn, "gapleft 10, w 120!, h 32!");
 
 		excelBtn = new JButton("Export Excel");
-		excelBtn.setPreferredSize(new Dimension(120, 32));
 		excelBtn.addActionListener(e -> exportToExcel());
-		bottomBar.add(excelBtn);
+		bottomBar.add(excelBtn, "gapleft 10, w 120!, h 32!");
 
-		mainPanel.add(bottomBar);
+		mainPanel.add(bottomBar, "growx");
 
-		parent.add(mainPanel);
+		parent.add(mainPanel, "growx");
 	}
 
 	private void setupCenterPanel() {
@@ -710,28 +689,25 @@ public class UI extends JFrame {
 		scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
 
 		// Setup Loading Panel
-		JPanel loadingPanel = new JPanel(new GridBagLayout());
+		JPanel loadingPanel = new JPanel(new MigLayout("fill, ins 0", "[grow, center]", "[grow, center]"));
 		loadingPanel.setBackground(Color.WHITE);
 
-		JPanel loadingContent = new JPanel();
-		loadingContent.setLayout(new BoxLayout(loadingContent, BoxLayout.Y_AXIS));
+		JPanel loadingContent = new JPanel(new MigLayout("ins 0, wrap 1, align center", "[center]"));
 		loadingContent.setOpaque(false);
 
 		JLabel loadingLabel = new JLabel("Searching...");
 		loadingLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
 		loadingLabel.setForeground(new Color(63, 81, 181));
-		loadingLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
 		JProgressBar centerSpinner = new JProgressBar();
 		centerSpinner.setIndeterminate(true);
 		centerSpinner.setPreferredSize(new Dimension(200, 4));
-		centerSpinner.setAlignmentX(JProgressBar.CENTER_ALIGNMENT);
 
-		loadingContent.add(loadingLabel);
-		loadingContent.add(Box.createVerticalStrut(10));
-		loadingContent.add(centerSpinner);
+		loadingContent.add(loadingLabel, "gapbottom 10");
+		loadingContent.add(centerSpinner, "growx");
 
 		loadingPanel.add(loadingContent);
+
 
 		// Setup Card Layout
 		centerCardLayout = new CardLayout();
@@ -740,11 +716,11 @@ public class UI extends JFrame {
 		centerPanel.add(scrollPane, CARD_TABLE);
 		centerPanel.add(loadingPanel, CARD_LOADING);
 
-		add(centerPanel, BorderLayout.CENTER);
+		add(centerPanel, "grow");
 	}
 
 	private void setupFooter() {
-		JPanel footer = new JPanel(new BorderLayout());
+		JPanel footer = new JPanel(new MigLayout("fillx, ins 0 15 0 15, aligny center", "[grow][]", "[]"));
 		footer.setBackground(new Color(7, 15, 30)); // Bold Dark Navy
 		footer.setPreferredSize(new Dimension(getWidth(), 40));
 		footer.setBorder(BorderFactory.createCompoundBorder(
@@ -753,21 +729,20 @@ public class UI extends JFrame {
 
 		// statusLabel intentionally not added to footer
 
-
 		// Metrics Panel
-		JPanel metricPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 0));
+		JPanel metricPanel = new JPanel(new MigLayout("ins 0, aligny center", "[]20[]", "[]"));
 		metricPanel.setOpaque(false);
-		metricPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 
 		totalFoundLabel = new JLabel("");
 		totalFoundLabel.setForeground(Color.WHITE);
 		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(totalFoundLabel, 1.0);
 		totalFoundLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-		metricPanel.add(totalFoundLabel);
+		metricPanel.add(totalFoundLabel, "aligny center");
 
-		footer.add(metricPanel, BorderLayout.EAST);
-		add(footer, BorderLayout.SOUTH);
+		footer.add(metricPanel, "right, aligny center");
+		add(footer, "growx");
 	}
+
 
 	private JLabel createClickableMetricLabel(String bundleKey) {
 		JLabel label = new JLabel("");
@@ -1615,7 +1590,7 @@ public class UI extends JFrame {
 		public CriteriaLine(String defaultValue, Runnable onEnter,
 				java.util.function.Consumer<CriteriaLine> removeAction) {
 			this.onEnter = onEnter;
-			setLayout(new FlowLayout(FlowLayout.LEFT, 12, 8));
+			setLayout(new MigLayout("ins 8 12 8 12, fillx", "[][]15[][]10[][]10[][]10[][]10[][]"));
 			setOpaque(false);
 
 			removeBtn = new JButton("×");
@@ -1629,48 +1604,45 @@ public class UI extends JFrame {
 			removeBtn.addActionListener(e -> removeAction.accept(this));
 			add(removeBtn);
 
+
 			criteriaIndexLabel = new JLabel("Crit " + (criteriaLines.size() + 1));
 			criteriaIndexLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-			criteriaIndexLabel.setPreferredSize(new Dimension(80, 25));
-			add(criteriaIndexLabel);
+			add(criteriaIndexLabel, "w 60!");
+
 
 			valueLabel = new JLabel("Value:");
 			add(valueLabel);
 			valueField = new JTextField(defaultValue, 12);
-			valueField.setPreferredSize(new Dimension(150, 32));
 			valueField.addActionListener(e -> {
 				valueField.selectAll();
 				onEnter.run();
 			});
-			add(valueField);
+			add(valueField, "w 150!, h 32!");
 
 			typeLabel = new JLabel("Type:");
 			add(typeLabel);
 			typeCombo = new JComboBox<>(Criteria.MatchingType.values());
 			typeCombo.setSelectedItem(Criteria.MatchingType.SIMILARITY);
-			typeCombo.setPreferredSize(new Dimension(140, 32));
-			add(typeCombo);
+			add(typeCombo, "w 140!, h 32!");
 
 			spellingWeightLabel = new JLabel("Spell W:");
 			add(spellingWeightLabel);
 			spellingWeightSpinner = new JSpinner(new SpinnerNumberModel(1.0, 0.0, 100.0, 0.1));
 			setupDotDecimalSpinner(spellingWeightSpinner, "0.0");
-			spellingWeightSpinner.setPreferredSize(new Dimension(70, 32));
 			spellingWeightSpinner.addChangeListener(e -> onEnter.run());
-			add(spellingWeightSpinner);
+			add(spellingWeightSpinner, "w 70!, h 32!");
 
 			phoneticWeightLabel = new JLabel("Phon W:");
 			add(phoneticWeightLabel);
 			phoneticWeightSpinner = new JSpinner(new SpinnerNumberModel(1.0, 0.0, 100.0, 0.1));
 			setupDotDecimalSpinner(phoneticWeightSpinner, "0.0");
-			phoneticWeightSpinner.setPreferredSize(new Dimension(70, 32));
 			phoneticWeightSpinner.addChangeListener(e -> onEnter.run());
-			add(phoneticWeightSpinner);
+			add(phoneticWeightSpinner, "w 70!, h 32!");
+
 
 			minSpellingLabel = new JLabel("Min Spell:");
 			minSpellingField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
 			setupDotDecimalSpinner(minSpellingField, "0.00");
-			minSpellingField.setPreferredSize(new Dimension(80, 32));
 			JFormattedTextField tfS = ((JSpinner.DefaultEditor) minSpellingField.getEditor()).getTextField();
 			tfS.addActionListener(e -> {
 				tfS.selectAll();
@@ -1678,12 +1650,11 @@ public class UI extends JFrame {
 			});
 			minSpellingField.addChangeListener(e -> onEnter.run());
 			add(minSpellingLabel);
-			add(minSpellingField);
+			add(minSpellingField, "w 80!, h 32!");
 
 			minPhoneticLabel = new JLabel("Min Phon:");
 			minPhoneticField = new JSpinner(new SpinnerNumberModel(0.8, 0.0, 1.0, 0.05));
 			setupDotDecimalSpinner(minPhoneticField, "0.00");
-			minPhoneticField.setPreferredSize(new Dimension(80, 32));
 			JFormattedTextField tfP = ((JSpinner.DefaultEditor) minPhoneticField.getEditor()).getTextField();
 			tfP.addActionListener(e -> {
 				tfP.selectAll();
@@ -1691,7 +1662,8 @@ public class UI extends JFrame {
 			});
 			minPhoneticField.addChangeListener(e -> onEnter.run());
 			add(minPhoneticLabel);
-			add(minPhoneticField);
+			add(minPhoneticField, "w 80!, h 32!");
+
 
 			typeCombo.addActionListener(e -> {
 				boolean isSimilarity = typeCombo.getSelectedItem() == Criteria.MatchingType.SIMILARITY;
