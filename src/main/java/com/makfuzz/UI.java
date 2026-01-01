@@ -99,6 +99,7 @@ public class UI extends JFrame {
 	private JLabel appSubtitle;
 	private JLabel srcLabel;
 	private JButton browseBtn;
+	private JButton colsBtn;
 	private JLabel criteriaLabel;
 	private JLabel thresholdLabel;
 	private JLabel limitLabel;
@@ -191,8 +192,17 @@ public class UI extends JFrame {
 		browseBtn = new JButton("Browse");
 		browseBtn.addActionListener(e -> chooseFileAndColumns());
 
+		colsBtn = new JButton("Columns");
+		colsBtn.addActionListener(e -> {
+			String path = sourcePathField.getText();
+			if (path != null && !path.isEmpty()) {
+				showColumnSelectionDialog(new File(path));
+			}
+		});
+
 		sourcePanel.add(sourcePathField);
 		sourcePanel.add(browseBtn);
+		sourcePanel.add(colsBtn);
 
 		headerPanel.add(sourcePanel);
 
@@ -334,6 +344,7 @@ public class UI extends JFrame {
 		appSubtitle.setText(bundle.getString("app.header.subtitle"));
 		srcLabel.setText(bundle.getString("source.label"));
 		browseBtn.setText(bundle.getString("source.button.browse"));
+		colsBtn.setText(bundle.getString("source.button.columns"));
 		updateSelectedColumnsLabel();
 		criteriaLabel.setText(bundle.getString("search.config.label"));
 		addCriteriaBtn.setText(bundle.getString("search.config.add_btn"));
@@ -443,71 +454,75 @@ public class UI extends JFrame {
 		if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
 			File selectedFile = chooser.getSelectedFile();
 			sourcePathField.setText(selectedFile.getAbsolutePath());
+			showColumnSelectionDialog(selectedFile);
+		}
+	}
 
-			try {
-				List<String> lines = FileUtils.readLines(selectedFile, StandardCharsets.UTF_8);
-				if (lines.isEmpty()) {
-					return;
-				}
-
-				String headerLine = lines.get(0);
-				String[] columns = headerLine.split("[,;]");
-
-				// Show column selection dialog
-				JPanel panel = new JPanel();
-				panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-				panel.add(new JLabel(bundle.getString("dialog.select_columns.msg")));
-
-				javax.swing.JCheckBox[] checkBoxes = new javax.swing.JCheckBox[columns.length];
-				for (int i = 0; i < columns.length; i++) {
-					checkBoxes[i] = new javax.swing.JCheckBox(columns[i].trim());
-					// Pre-select if already in availableColumns
-					for (ConfigManager.ColumnConfig cc : availableColumns) {
-						if (cc.index == i) {
-							checkBoxes[i].setSelected(true);
-							break;
-						}
-					}
-					panel.add(checkBoxes[i]);
-				}
-
-				int result = JOptionPane.showConfirmDialog(this, new JScrollPane(panel),
-						bundle.getString("dialog.select_columns.title"), JOptionPane.OK_CANCEL_OPTION);
-
-				if (result == JOptionPane.OK_OPTION) {
-					availableColumns.clear();
-
-					StringBuilder sb = new StringBuilder();
-					for (int i = 0; i < checkBoxes.length; i++) {
-						if (checkBoxes[i].isSelected()) {
-							String colName = columns[i].trim();
-							ConfigManager.ColumnConfig cc = new ConfigManager.ColumnConfig();
-							cc.name = colName;
-							cc.index = i;
-							availableColumns.add(cc);
-
-							if (sb.length() > 0) {
-								sb.append(", ");
-							}
-							sb.append(colName);
-						}
-					}
-
-					updateSelectedColumnsLabel();
-
-					// Reload data with new columns
-					loadData(selectedFile.getAbsolutePath());
-
-					// Trigger dynamic text update
-					updateTexts();
-
-					saveSettings();
-				}
-
-			} catch (IOException e) {
-				e.printStackTrace();
-				JOptionPane.showMessageDialog(this, "Error reading file headers: " + e.getMessage());
+	private void showColumnSelectionDialog(File selectedFile) {
+		try {
+			List<String> lines = FileUtils.readLines(selectedFile, StandardCharsets.UTF_8);
+			if (lines.isEmpty()) {
+				return;
 			}
+
+			String headerLine = lines.get(0);
+			String[] columns = headerLine.split("[,;]");
+
+			// Show column selection dialog
+			JPanel panel = new JPanel();
+			panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+			panel.add(new JLabel(bundle.getString("dialog.select_columns.msg")));
+
+			javax.swing.JCheckBox[] checkBoxes = new javax.swing.JCheckBox[columns.length];
+			for (int i = 0; i < columns.length; i++) {
+				checkBoxes[i] = new javax.swing.JCheckBox(columns[i].trim());
+				// Pre-select if already in availableColumns
+				for (ConfigManager.ColumnConfig cc : availableColumns) {
+					if (cc.index == i) {
+						checkBoxes[i].setSelected(true);
+						break;
+					}
+				}
+				panel.add(checkBoxes[i]);
+			}
+
+			int result = JOptionPane.showConfirmDialog(this, new JScrollPane(panel),
+					bundle.getString("dialog.select_columns.title"), JOptionPane.OK_CANCEL_OPTION);
+
+			if (result == JOptionPane.OK_OPTION) {
+				availableColumns.clear();
+
+				StringBuilder sb = new StringBuilder();
+				for (int i = 0; i < checkBoxes.length; i++) {
+					if (checkBoxes[i].isSelected()) {
+						String colName = columns[i].trim();
+						ConfigManager.ColumnConfig cc = new ConfigManager.ColumnConfig();
+						cc.name = colName;
+						cc.index = i;
+						availableColumns.add(cc);
+
+						if (sb.length() > 0) {
+							sb.append(", ");
+						}
+						sb.append(colName);
+					}
+				}
+
+				updateSelectedColumnsLabel();
+
+				// Reload data with new columns
+				loadData(selectedFile.getAbsolutePath());
+
+				// Trigger dynamic text update
+				updateTexts();
+
+				saveSettings();
+				performSearch();
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(this, "Error reading file headers: " + e.getMessage());
 		}
 	}
 
@@ -548,6 +563,7 @@ public class UI extends JFrame {
 		criteriaContainer.repaint();
 		updateTexts();
 		saveSettings();
+		performSearch();
 	}
 
 	private void setupTopPanel(JPanel parent) {
@@ -566,7 +582,7 @@ public class UI extends JFrame {
 		configHeader.add(criteriaLabel, BorderLayout.WEST);
 
 		addCriteriaBtn = new JButton("+ Add Criterion");
-		addCriteriaBtn.setPreferredSize(new Dimension(150, 32));
+		addCriteriaBtn.setPreferredSize(new Dimension(225, 32));
 		addCriteriaBtn.addActionListener(e -> addNewCriteriaLine());
 		configHeader.add(addCriteriaBtn, BorderLayout.EAST);
 
@@ -630,7 +646,7 @@ public class UI extends JFrame {
 
 		executeBtn = new JButton("Run Search");
 		executeBtn.setPreferredSize(new Dimension(210, 32)); // 1.5x original width
-		executeBtn.setBackground(new Color(15, 30, 60)); // Matches footer background
+		executeBtn.setBackground(new Color(7, 15, 30)); // Matches footer background
 		executeBtn.setForeground(Color.WHITE);
 
 		// Radiance specific: Force white text by preventing theme-based color changes
@@ -729,14 +745,14 @@ public class UI extends JFrame {
 
 	private void setupFooter() {
 		JPanel footer = new JPanel(new BorderLayout());
-		footer.setBackground(new Color(15, 30, 60)); // Material Dark Blue
+		footer.setBackground(new Color(7, 15, 30)); // Bold Dark Navy
 		footer.setPreferredSize(new Dimension(getWidth(), 40));
-		footer.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+		footer.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(40, 60, 100)),
+				BorderFactory.createEmptyBorder(0, 15, 0, 15)));
 
-		statusLabel = new JLabel(bundle.getString("status.ready"));
-		statusLabel.setForeground(Color.WHITE);
-		statusLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-		footer.add(statusLabel, BorderLayout.WEST);
+		// statusLabel intentionally not added to footer
+
 
 		// Metrics Panel
 		JPanel metricPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 0));
@@ -744,7 +760,8 @@ public class UI extends JFrame {
 		metricPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 
 		totalFoundLabel = new JLabel("");
-		totalFoundLabel.setForeground(new Color(255, 200, 50)); // Amber
+		totalFoundLabel.setForeground(Color.WHITE);
+		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(totalFoundLabel, 1.0);
 		totalFoundLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
 		metricPanel.add(totalFoundLabel);
 
@@ -754,7 +771,8 @@ public class UI extends JFrame {
 
 	private JLabel createClickableMetricLabel(String bundleKey) {
 		JLabel label = new JLabel("");
-		label.setForeground(new Color(200, 200, 200));
+		label.setForeground(Color.WHITE);
+		RadianceThemingCortex.ComponentOrParentChainScope.setColorizationFactor(label, 1.0);
 		label.setFont(new Font("SansSerif", Font.PLAIN, 12));
 		label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -1070,9 +1088,6 @@ public class UI extends JFrame {
 			tableModel.setRowCount(0);
 
 			// Update Status Bar
-			if (statusLabel != null) {
-				statusLabel.setText(bundle.getString("status.ready"));
-			}
 			if (totalFoundLabel != null) {
 				totalFoundLabel.setText(MessageFormat.format(bundle.getString("status.total"), searchResult.getTotalFound(), searchResult.getTotalResults()));
 			}
